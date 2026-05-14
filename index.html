@@ -938,7 +938,7 @@
             const [activePlaylist, setActivePlaylist] = useState(null);
 
             // Preferences
-            const [fontSize, setFontSize] = useState(18);
+            const [fontSize, setFontSize] = useState(() => { const s = parseInt(localStorage.getItem('quran_fontSize')); return (s >= 12 && s <= 32) ? s : 18; });
             const [darkMode, setDarkMode] = useState(localStorage.getItem('theme') === 'dark');
             const [sortType, setSortType] = useState('mushaf');
             const [bookmark, setBookmark] = useState(null);
@@ -1096,6 +1096,10 @@
             useEffect(() => {
                 localStorage.setItem('quran_playlists', JSON.stringify(playlists));
             }, [playlists]);
+
+            useEffect(() => {
+                localStorage.setItem('quran_fontSize', String(fontSize));
+            }, [fontSize]);
 
             // Save bookmark whenever active ayah changes
             useEffect(() => {
@@ -1298,19 +1302,24 @@
             const [searching, setSearching] = useState(false);
 
             const handleSearch = async (queryRaw) => {
-                if (!queryRaw.trim()) return;
+                if (!queryRaw.trim()) { setRawMatches([]); setDetailedResults([]); return; }
                 setSearching(true); setViewMode('search'); setRawMatches([]); setDetailedResults([]);
                 
                 try {
                     // 1. Build/Load Index (Multi-Translation)
                     let quranData = fullQuranIndex.current;
                     if (!quranData) {
-                        const cached = localStorage.getItem('quran_index_v2');
+                        const CACHE_KEY = 'quran_index_v2';
+                        const CACHE_TS_KEY = 'quran_index_v2_ts';
+                        const CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+                        const cachedTs = parseInt(localStorage.getItem(CACHE_TS_KEY) || '0');
+                        const cached = (Date.now() - cachedTs < CACHE_MAX_AGE) ? localStorage.getItem(CACHE_KEY) : null;
+                        if (!cached) { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(CACHE_TS_KEY); }
                         if (cached) {
                             try {
                                 quranData = JSON.parse(cached);
                                 fullQuranIndex.current = quranData;
-                            } catch(e) { localStorage.removeItem('quran_index_v2'); }
+                            } catch(e) { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(CACHE_TS_KEY); }
                         }
                         
                         if (!quranData) {
@@ -1345,7 +1354,7 @@
                                     }
                                 }
                                 fullQuranIndex.current = quranData;
-                                try { localStorage.setItem('quran_index_v2', JSON.stringify(quranData)); } catch(e) { console.warn('[Cache] quran_index_v2 kaydedilemedi (quota?):', e); }
+                                try { localStorage.setItem('quran_index_v2', JSON.stringify(quranData)); localStorage.setItem('quran_index_v2_ts', String(Date.now())); } catch(e) { console.warn('[Cache] quran_index_v2 kaydedilemedi (quota?):', e); }
                             } catch (err) {
                                 console.error("Indexing failed:", err);
                                 showToast("Arama hazırlanamadı: " + err.message);
@@ -1379,9 +1388,14 @@
 
                     let targetSurahID = null, targetVerseNum = null;
                     if (matchNav) {
-                        targetSurahID = findSurahID(matchNav[1]);
-                        targetVerseNum = parseInt(matchNav[2]);
-                    } else {
+                        const candidate = findSurahID(matchNav[1]);
+                        // Only treat as navigation if the text part is actually a surah name
+                        if (candidate) {
+                            targetSurahID = candidate;
+                            targetVerseNum = parseInt(matchNav[2]);
+                        }
+                    }
+                    if (!targetSurahID) {
                         // Check if it's just a surah name
                         const possibleID = findSurahID(queryRaw);
                         if (possibleID) {
@@ -1608,7 +1622,10 @@
             }, [showTafsir, ayahData.surahNumber, ayahData.numberInSurah]);
 
             const globalID = getGlobalAyahID(ayahData.surahNumber, ayahData.numberInSurah);
-            const normalizedSurahName = encodeURIComponent(ayahData.surahName.toLowerCase().replace(/\s+/g, '-'));
+            const normalizedSurahName = ayahData.surahName.toLowerCase()
+                .replace(/â/g,'a').replace(/î/g,'i').replace(/û/g,'u').replace(/ö/g,'o').replace(/ü/g,'u')
+                .replace(/ş/g,'s').replace(/ç/g,'c').replace(/ğ/g,'g').replace(/ı/g,'i')
+                .replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
             const diyanetUrl = `https://kuran.diyanet.gov.tr/tefsir/${normalizedSurahName}-suresi/${globalID}/${ayahData.numberInSurah}-ayet-tefsiri`;
 
             const fetchDiyanetTafsir = async () => {
@@ -2123,7 +2140,7 @@
             );
 
             return (
-                <main className="flex-1 overflow-y-auto bg-slate-100 dark:bg-black p-4 md:p-8 pt-16 md:pt-8 scroll-smooth" id="main-scroll">
+                <main className={`flex-1 overflow-y-auto bg-slate-100 dark:bg-black p-4 md:p-8 scroll-smooth ${viewMode === 'reader' ? 'pt-16 md:pt-8' : 'pt-4 md:pt-8'}`} id="main-scroll">
                     <div className="max-w-4xl mx-auto pb-32">
                         {loading && <div className="flex flex-col items-center justify-center h-64 text-emerald-600 animate-pulse"><i className="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>{loadingText}</p></div>}
 
@@ -2132,7 +2149,9 @@
                             <div className="md:hidden absolute top-0 left-0 w-full z-10 bg-white dark:bg-black border-b dark:border-neutral-800 p-2 shadow-sm flex gap-2">
                                 <select
                                     onChange={(e) => {
-                                        const surah = surahs.find(s => s.number === parseInt(e.target.value));
+                                        const num = parseInt(e.target.value);
+                                        if (isNaN(num)) return;
+                                        const surah = surahs.find(s => s.number === num);
                                         if (surah) fetchSurah(surah);
                                     }}
                                     className="flex-1 p-2 rounded border border-gray-200 dark:border-neutral-800 dark:bg-black dark:text-white focus:ring-emerald-500 text-sm"
@@ -2291,12 +2310,13 @@
                                             <div className="absolute top-2 right-2 flex gap-1">
                                                 <button title="Metin olarak aktar" onClick={(e) => {
                                                     e.stopPropagation();
-                                                    const lines = p.items.map((it, i) =>
+                                                    const lines = p.items.filter(it => !it.isPartial).map((it, i) =>
                                                         `${i+1}. ${it.surahName} ${it.numberInSurah}. Ayet\n` +
                                                         `${it.text || ''}\n` +
                                                         `${it.transliteration || ''}\n` +
                                                         `${it.diyanet || ''}\n`
                                                     );
+                                                    if (lines.length === 0) { showToast('Liste henüz yüklenmedi, lütfen önce listeyi açın.'); return; }
                                                     const content = `${p.name}\n${'='.repeat(p.name.length)}\n\n${lines.join('\n')}`;
                                                     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
                                                     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
