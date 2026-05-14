@@ -1185,13 +1185,18 @@
                 const audio = audioRef.current;
 
                 if (activeAyah?.number === ayah.number && !options.forcePlay) {
-                    if (audio.paused) {
-                        audio.play().then(() => setIsPlaying(true)).catch(console.error);
-                    } else {
-                        audio.pause();
-                        setIsPlaying(false);
+                    // If audio src is already loaded for this ayah, just toggle play/pause
+                    const srcMatches = ayah.audio && audio.src && audio.src === ayah.audio;
+                    if (srcMatches) {
+                        if (audio.paused) {
+                            audio.play().then(() => setIsPlaying(true)).catch(console.error);
+                        } else {
+                            audio.pause();
+                            setIsPlaying(false);
+                        }
+                        return;
                     }
-                    return;
+                    // Otherwise fall through to load + play (e.g. jumped to ayah without playing)
                 }
 
                 if (!options.onlyAudio) {
