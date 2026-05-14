@@ -936,12 +936,11 @@
                             const capturedJump = pendingJump;
                             const jumpTimer = setTimeout(() => {
                                 if (capturedJump.shouldPlay) {
-                                    // playAyah zaten setActiveAyah + ses başlatma yapıyor
-                                    playAyah(targetAyah, { forcePlay: true });
+                                    playAyahRef.current?.(targetAyah, { forcePlay: true });
                                 } else {
                                     setActiveAyah(targetAyah);
                                 }
-                            }, 200);
+                            }, 350);
 
                             // İsteği temizle
                             setPendingJump(null);
@@ -1176,6 +1175,7 @@
             }, [activePlaylist]);
 
             // Audio Controls
+            const playAyahRef = useRef(null);
             const playAyah = (ayah, options = {}) => {
                 const audio = audioRef.current;
 
@@ -1219,6 +1219,7 @@
                     setIsPlaying(false);
                 }
             };
+            playAyahRef.current = playAyah;
 
             const playNext = () => {
                 const list = (viewMode === 'playlist_view' && activePlaylist) ? activePlaylist.items : (viewMode === 'search' ? detailedResults : ayahs);
@@ -2021,8 +2022,8 @@
 
             const { sortedSurahs: sortedSurahsMobile } = useQuran();
 
-            // Infinite Scroll Logic
-            useEffect(() => { setDisplayLimit(10); }, [viewMode, activeSurah, searchQuery]);
+            // Infinite Scroll Logic — pendingJump aktifken sıfırlama, jump'ın setDisplayLimit çağrısını ezmez
+            useEffect(() => { if (!pendingJump) setDisplayLimit(10); }, [viewMode, activeSurah, searchQuery, pendingJump]);
 
             const handleLoadMore = useCallback(() => {
                 if (viewMode === 'reader' && displayLimit < ayahs.length) {
