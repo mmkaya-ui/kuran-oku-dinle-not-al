@@ -2251,17 +2251,17 @@
                                 <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
                                     <h2 className="text-2xl font-bold flex items-center gap-2"><i className="fa-solid fa-layer-group text-emerald-600"></i> Listelerim</h2>
                                     <div className="flex gap-2 flex-wrap">
-                                        <button title="Listeleri Dışa Aktar (JSON)" onClick={() => {
+                                        <button title="Tüm listeleri yedek olarak bilgisayarına kaydet" onClick={() => {
                                             if (playlists.length === 0) { showToast('Kaydedilmiş liste yok.'); return; }
                                             const blob = new Blob([JSON.stringify(playlists, null, 2)], { type: 'application/json' });
                                             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
                                             a.download = `kuran-listeler-${new Date().toISOString().slice(0,10)}.json`; a.click();
                                             showToast(`${playlists.length} liste dışa aktarıldı.`);
                                         }} className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">
-                                            <i className="fa-solid fa-file-export"></i> JSON Aktar
+                                            <i className="fa-solid fa-file-export"></i> Dışa Aktar
                                         </button>
-                                        <label title="Listeleri İçe Aktar (JSON)" className="flex items-center gap-1.5 text-xs bg-white dark:bg-black border border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1.5 rounded-lg font-bold shadow-sm cursor-pointer">
-                                            <i className="fa-solid fa-file-import"></i> JSON Yükle
+                                        <label title="Daha önce kaydettiğin listeleri yükle" className="flex items-center gap-1.5 text-xs bg-white dark:bg-black border border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1.5 rounded-lg font-bold shadow-sm cursor-pointer">
+                                            <i className="fa-solid fa-file-import"></i> İçe Aktar
                                             <input type="file" accept=".json" className="hidden" onChange={(e) => {
                                                 const file = e.target.files?.[0]; if (!file) return;
                                                 const reader = new FileReader();
@@ -2332,6 +2332,7 @@
 
             const [playlistModal, setPlaylistModal] = useState(false);
             const [newListName, setNewListName] = useState("");
+            const [showHelp, setShowHelp] = useState(false);
 
             const handleBulkAdd = () => {
                 if (!newListName) return;
@@ -2345,12 +2346,80 @@
 
             return (
                 <div className="flex flex-col h-full font-sans relative">
+
+                    {/* Help Modal */}
+                    {showHelp && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowHelp(false)}>
+                            <div className="absolute inset-0 bg-black/50"></div>
+                            <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                <div className="bg-emerald-600 text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
+                                    <h2 className="font-bold text-lg flex items-center gap-2"><i className="fa-solid fa-circle-question"></i> Kullanım Rehberi</h2>
+                                    <button onClick={() => setShowHelp(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-emerald-500"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div className="p-6 space-y-5 text-sm text-gray-700 dark:text-gray-300">
+
+                                    <section>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-magnifying-glass text-xs"></i> Arama Özellikleri</h3>
+                                        <ul className="space-y-1.5 pl-2">
+                                            <li><span className="font-semibold">Kelime arama:</span> Herhangi bir Türkçe kelimeyi yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">namaz</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">sabır</code>)</li>
+                                            <li><span className="font-semibold">Sure içinde ara:</span> Sure adı + kelime yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Bakara namaz</code>)</li>
+                                            <li><span className="font-semibold">Sure aç:</span> Sadece sure adını yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Yasin</code>)</li>
+                                            <li><span className="font-semibold">Ayete git:</span> Sure adı + ayet numarası (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Bakara 255</code>)</li>
+                                            <li><span className="font-semibold">Numara ile git:</span> Sadece sure numarası yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">36</code>)</li>
+                                        </ul>
+                                    </section>
+
+                                    <section>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-layer-group text-xs"></i> Listeler</h3>
+                                        <ul className="space-y-1.5 pl-2">
+                                            <li>Herhangi bir ayetin <i className="fa-solid fa-folder-plus text-xs"></i> butonuna basarak listeye ekle</li>
+                                            <li>Birden fazla ayet seçip <span className="font-semibold">Listeye Ekle</span> ile toplu ekle</li>
+                                            <li><i className="fa-solid fa-file-lines text-xs"></i> ile listeyi Arapça + okunuş + meal olarak <span className="font-semibold">.txt</span> indir</li>
+                                            <li><span className="font-semibold">Dışa Aktar</span> ile listelerini yedekle, <span className="font-semibold">İçe Aktar</span> ile başka cihaza taşı</li>
+                                        </ul>
+                                    </section>
+
+                                    <section>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-note-sticky text-xs"></i> Notlar</h3>
+                                        <ul className="space-y-1.5 pl-2">
+                                            <li>Her ayetin <i className="fa-solid fa-pen-to-square text-xs"></i> butonuyla not al, tarayıcında saklanır</li>
+                                            <li>Header'daki <span className="font-semibold">Notlar</span> butonu ile tüm notlarını yedekle ve başka cihaza taşı</li>
+                                        </ul>
+                                    </section>
+
+                                    <section>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-play text-xs"></i> Dinleme</h3>
+                                        <ul className="space-y-1.5 pl-2">
+                                            <li>Herhangi bir ayetin <span className="font-semibold">Dinle</span> butonuna bas, otomatik devam eder</li>
+                                            <li>Alttaki çalar çubuğundan hız ayarla (0.5× – 2×) ve tekrar modunu seç</li>
+                                            <li>Klavye kısayolları: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Space</code> oynat/duraklat · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">→</code> sonraki · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">←</code> önceki</li>
+                                        </ul>
+                                    </section>
+
+                                    <section>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-bookmark text-xs"></i> Yer İmi</h3>
+                                        <ul className="space-y-1.5 pl-2">
+                                            <li>Bir ayet dinlenince otomatik olarak yer imi oluşturulur</li>
+                                            <li>Uygulamayı kapatsanız da kaldığınız yerden <span className="font-semibold">Devam Et</span> ile devam edin</li>
+                                        </ul>
+                                    </section>
+
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <header className="bg-emerald-700 dark:bg-emerald-900 text-white px-4 pb-2 shadow-lg z-20 sticky top-0 border-b border-transparent dark:border-emerald-800">
                         <div className="max-w-md mx-auto relative pt-2">
-                            <button onClick={() => setDarkMode(!darkMode)} className="absolute right-0 top-1.5 bg-emerald-600 p-2 rounded-full w-9 h-9 flex items-center justify-center hover:bg-emerald-500 transition border border-emerald-500">
-                                {darkMode ? <i className="fa-solid fa-sun text-xs"></i> : <i className="fa-solid fa-moon text-xs"></i>}
-                            </button>
-                            <div className="mb-2 flex items-center gap-3 pr-10">
+                            <div className="absolute right-0 top-1.5 flex items-center gap-1.5">
+                                <button onClick={() => setShowHelp(true)} className="bg-emerald-600 p-2 rounded-full w-9 h-9 flex items-center justify-center hover:bg-emerald-500 transition border border-emerald-500" title="Kullanım Rehberi">
+                                    <i className="fa-solid fa-circle-question text-xs"></i>
+                                </button>
+                                <button onClick={() => setDarkMode(!darkMode)} className="bg-emerald-600 p-2 rounded-full w-9 h-9 flex items-center justify-center hover:bg-emerald-500 transition border border-emerald-500">
+                                    {darkMode ? <i className="fa-solid fa-sun text-xs"></i> : <i className="fa-solid fa-moon text-xs"></i>}
+                                </button>
+                            </div>
+                            <div className="mb-2 flex items-center gap-3 pr-20">
                                 <button onClick={goBack} className="bg-emerald-800 p-2 rounded-lg hover:bg-emerald-600 transition h-9 w-9 flex items-center justify-center"><i className="fa-solid fa-arrow-left text-sm"></i></button>
                                 <div>
                                     <h1 className="text-xl font-bold mb-0.5 flex items-center leading-none"><i className="fa-solid fa-book-open mr-2 text-sm"></i> Kuran Rehberi</h1>
