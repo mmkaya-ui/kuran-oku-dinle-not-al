@@ -1985,7 +1985,7 @@
                 searching, searchQuery, handleSearch, rawMatches, detailedResults, setDetailedResults, fetchDetailsForMatches,
                 loading, loadingText, playlists, activePlaylist, setActivePlaylist, setPlaylists,
                 selectedAyahs, setSelectedAyahs, bookmark, fetchSurah, surahs, sortType, setSortType,
-                activeAyah, displayLimit, setDisplayLimit, jumpTargetRef, closePlayer
+                activeAyah, isPlaying, displayLimit, setDisplayLimit, jumpTargetRef, closePlayer
             } = useQuran();
 
             const lastScrolledAyah = useRef(null);
@@ -2096,7 +2096,13 @@
                 return [];
             }, [viewMode, ayahs, displayLimit, detailedResults, activePlaylist]);
 
-            const showContinueReading = !loading && !searching && viewMode === 'reader' && bookmark && bookmark.surahNumber && bookmark.surahNumber !== activeSurah?.number;
+            // Farklı suredeyken VEYA aynı suredeyken PlayerBar kapalıysa (aktif ayet yok/oynamıyor) göster
+            const bookmarkInCurrentSurah = bookmark && bookmark.surahNumber === activeSurah?.number;
+            const playerInactive = !activeAyah; // PlayerBar tamamen kapalıysa (pause değil, kapalı)
+            const showContinueReading = !loading && !searching && viewMode === 'reader' && bookmark && bookmark.surahNumber && (
+                bookmark.surahNumber !== activeSurah?.number ||
+                (bookmarkInCurrentSurah && playerInactive)
+            );
 
             return (
                 <main className="flex-1 overflow-y-auto bg-slate-100 dark:bg-black p-4 md:p-8 pt-16 md:pt-8 scroll-smooth" id="main-scroll">
