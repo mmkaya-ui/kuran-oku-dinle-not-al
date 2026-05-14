@@ -1,5 +1,18 @@
-const CACHE_NAME = 'quran-v6';
-const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v6';
+const CACHE_NAME = 'quran-v7';
+const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v7';
+const AUDIO_CACHE_NAME = 'quran-audio-v7';
+
+const MAX_AUDIO_ENTRIES = 1000;  // ~75MB
+const MAX_API_ENTRIES   = 150;   // API responses
+
+async function trimCache(cacheName, maxEntries) {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxEntries) {
+        await cache.delete(keys[0]); // delete oldest (FIFO)
+        await trimCache(cacheName, maxEntries); // recurse until within limit
+    }
+}
 
 const STATIC_ASSETS = [
     './',
@@ -55,6 +68,7 @@ self.addEventListener('fetch', (event) => {
             fetch(event.request).then((networkResponse) => {
                 return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
                     cache.put(event.request, networkResponse.clone());
+                    trimCache(DYNAMIC_CACHE_NAME, MAX_API_ENTRIES);
                     return networkResponse;
                 });
             }).catch(() => {
@@ -65,16 +79,17 @@ self.addEventListener('fetch', (event) => {
     }
 
     // 2. Audio Files (cdn.islamic.network)
-    // Strategy: Cache First, fallback to Network
+    // Strategy: Cache First, fallback to Network — capped at MAX_AUDIO_ENTRIES
     if (url.origin === 'https://cdn.islamic.network') {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
                 if (cachedResponse) {
-                    return cachedResponse; // Return cached audio
+                    return cachedResponse;
                 }
                 return fetch(event.request).then((networkResponse) => {
-                    return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
+                    return caches.open(AUDIO_CACHE_NAME).then((cache) => {
                         cache.put(event.request, networkResponse.clone());
+                        trimCache(AUDIO_CACHE_NAME, MAX_AUDIO_ENTRIES);
                         return networkResponse;
                     });
                 });
