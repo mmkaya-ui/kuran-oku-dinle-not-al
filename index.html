@@ -1542,6 +1542,7 @@
 
             const [showTafsir, setShowTafsir] = useState(false);
             const [showNotes, setShowNotes] = useState(false);
+            const [showShareMenu, setShowShareMenu] = useState(false);
             const [localNote, setLocalNote] = useState("");
             const [footnotes, setFootnotes] = useState([]);
             const [loadingFootnotes, setLoadingFootnotes] = useState(false);
@@ -1553,27 +1554,6 @@
                 const saved = localStorage.getItem(noteKey);
                 if (saved) setLocalNote(saved);
             }, [ayahData.surahNumber, ayahData.numberInSurah]);
-
-            const handleShare = async () => {
-                const shareText = `"${ayahData.diyanet}"\n\n— ${ayahData.surahName} Suresi, ${ayahData.numberInSurah}. Ayet\n\nOkumak için: ${window.location.origin}${window.location.pathname}#quran`;
-                if (navigator.share) {
-                    try {
-                        await navigator.share({
-                            title: `${ayahData.surahName} ${ayahData.numberInSurah}. Ayet`,
-                            text: shareText,
-                        });
-                    } catch (err) {
-                        console.log('Paylaşım iptal:', err);
-                    }
-                } else {
-                    try {
-                        await navigator.clipboard.writeText(shareText);
-                        showToast("Ayet metni kopyalandı!");
-                    } catch (err) {
-                        showToast("Kopyalama başarısız oldu.");
-                    }
-                }
-            };
 
             const saveNote = (val) => {
                 setLocalNote(val);
@@ -1721,7 +1701,30 @@
                             )}
                         </div>
                         <div className="flex gap-2 relative">
-                            <button onClick={handleShare} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-gray-700 dark:text-slate-300 hover:bg-emerald-100 hover:text-emerald-600" title="Paylaş"><i className="fa-solid fa-share-nodes text-xs"></i></button>
+                            <button onClick={() => setShowShareMenu(p => !p)} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-gray-700 dark:text-slate-300 hover:bg-emerald-100 hover:text-emerald-600" title="Paylaş"><i className="fa-solid fa-share-nodes text-xs"></i></button>
+                            {showShareMenu && (
+                                <div className="absolute left-0 top-9 z-50 w-52 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-neutral-700 p-1.5 fade-in">
+                                    <div className="flex justify-between items-center px-2 py-1 mb-1 border-b dark:border-neutral-700">
+                                        <span className="text-[11px] font-bold text-gray-500">Paylaş</span>
+                                        <button onClick={() => setShowShareMenu(false)}><i className="fa-solid fa-xmark text-gray-400 text-xs"></i></button>
+                                    </div>
+                                    <button onClick={handleCopyText} className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 text-left text-sm text-gray-700 dark:text-gray-300">
+                                        <i className="fa-solid fa-copy w-4 text-center text-emerald-600"></i>
+                                        <span>Metni Kopyala</span>
+                                    </button>
+                                    <button onClick={handleShareImage} className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 text-left text-sm text-gray-700 dark:text-gray-300">
+                                        <i className="fa-solid fa-image w-4 text-center text-emerald-600"></i>
+                                        <span>Görsel Olarak Paylaş</span>
+                                        <span className="ml-auto text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">PNG</span>
+                                    </button>
+                                    {navigator.share && (
+                                        <button onClick={handleNativeShare} className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 text-left text-sm text-gray-700 dark:text-gray-300">
+                                            <i className="fa-solid fa-share-from-square w-4 text-center text-emerald-600"></i>
+                                            <span>Uygulamaya Gönder</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                             <button onClick={() => setShowNotes(!showNotes)} className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${localNote ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-600 dark:bg-gray-700 dark:text-slate-300 hover:bg-amber-100 hover:text-amber-600'}`} title="Not Al"><i className={`fa-solid ${localNote ? 'fa-note-sticky' : 'fa-pen-to-square'} text-xs`}></i></button>
                             {viewMode === 'playlist_view' ? (
                                 <button onClick={removeFromPlaylist} className="w-7 h-7 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200"><i className="fa-solid fa-trash text-xs"></i></button>
