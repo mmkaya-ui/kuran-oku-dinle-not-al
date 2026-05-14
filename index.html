@@ -2451,12 +2451,12 @@
                                         a.download = `kuran-notlar-${new Date().toISOString().slice(0,10)}.json`; a.click();
                                         showToast(`${Object.keys(notes).length} not dışa aktarıldı.`);
                                     }} className="bg-emerald-800 text-emerald-200 hover:bg-emerald-600 text-[10px] px-2 py-1 rounded border border-emerald-600/30 flex items-center gap-1">
-                                        <i className="fa-solid fa-file-export"></i>
-                                        <span className="hidden sm:inline">Notlar</span>
+                                        <i className="fa-solid fa-arrow-up-from-bracket text-[9px]"></i>
+                                        <span>Notları Yedekle</span>
                                     </button>
-                                    <label title="Notları İçe Aktar" className="bg-emerald-800 text-emerald-200 hover:bg-emerald-600 text-[10px] px-2 py-1 rounded border border-emerald-600/30 flex items-center gap-1 cursor-pointer">
-                                        <i className="fa-solid fa-file-import"></i>
-                                        <span className="hidden sm:inline">Yükle</span>
+                                    <label title="Daha önce yedeklediğin notları geri yükle" className="bg-emerald-800 text-emerald-200 hover:bg-emerald-600 text-[10px] px-2 py-1 rounded border border-emerald-600/30 flex items-center gap-1 cursor-pointer">
+                                        <i className="fa-solid fa-arrow-down-to-bracket text-[9px]"></i>
+                                        <span>Yedek Yükle</span>
                                         <input type="file" accept=".json" className="hidden" onChange={(e) => {
                                             const file = e.target.files?.[0]; if (!file) return;
                                             const reader = new FileReader();
