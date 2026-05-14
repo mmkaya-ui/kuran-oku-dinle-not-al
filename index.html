@@ -856,8 +856,8 @@
             const [rawMatches, setRawMatches] = useState([]);
             const [loading, setLoading] = useState(false);
             const [loadingText, setLoadingText] = useState("");
-            const [playbackRate, setPlaybackRate] = useState(1);
-            const [repeatMode, setRepeatMode] = useState('none');
+            const [playbackRate, setPlaybackRate] = useState(() => { const s = parseFloat(localStorage.getItem('quran_playbackRate')); return (s >= 0.5 && s <= 2) ? s : 1; });
+            const [repeatMode, setRepeatMode] = useState(() => { const s = localStorage.getItem('quran_repeatMode'); return ['none','one','all'].includes(s) ? s : 'none'; });
             const autoPlayAfterLoad = useRef(false);
             const jumpTargetRef = useRef(null); // { ayahNumber, shouldPlay }
             const skipDisplayResetRef = useRef(false);
@@ -938,9 +938,9 @@
             const [activePlaylist, setActivePlaylist] = useState(null);
 
             // Preferences
-            const [fontSize, setFontSize] = useState(() => { const s = parseInt(localStorage.getItem('quran_fontSize')); return (s >= 12 && s <= 32) ? s : 18; });
+            const [fontSize, setFontSize] = useState(() => { const s = parseInt(localStorage.getItem('quran_fontSize')); return (s >= 14 && s <= 32) ? s : 18; });
             const [darkMode, setDarkMode] = useState(localStorage.getItem('theme') === 'dark');
-            const [sortType, setSortType] = useState('mushaf');
+            const [sortType, setSortType] = useState(() => { const s = localStorage.getItem('quran_sortType'); return s === 'revelation' ? 'revelation' : 'mushaf'; });
             const [bookmark, setBookmark] = useState(null);
 
             // UI State
@@ -1100,6 +1100,18 @@
             useEffect(() => {
                 localStorage.setItem('quran_fontSize', String(fontSize));
             }, [fontSize]);
+
+            useEffect(() => {
+                localStorage.setItem('quran_playbackRate', String(playbackRate));
+            }, [playbackRate]);
+
+            useEffect(() => {
+                localStorage.setItem('quran_repeatMode', repeatMode);
+            }, [repeatMode]);
+
+            useEffect(() => {
+                localStorage.setItem('quran_sortType', sortType);
+            }, [sortType]);
 
             // Save bookmark whenever active ayah changes
             useEffect(() => {
@@ -1302,7 +1314,7 @@
             const [searching, setSearching] = useState(false);
 
             const handleSearch = async (queryRaw) => {
-                if (!queryRaw.trim()) { setRawMatches([]); setDetailedResults([]); return; }
+                if (!queryRaw.trim()) { setRawMatches([]); setDetailedResults([]); setViewMode('reader'); return; }
                 setSearching(true); setViewMode('search'); setRawMatches([]); setDetailedResults([]);
                 
                 try {
@@ -1648,7 +1660,7 @@
                             .replace(/<iframe\b[^>]*>([\s\S]*?)<\/iframe>/gim, "")
                             .replace(/\s*on\w+="[^"]*"/gi, "")
                             .replace(/\s*on\w+='[^']*'/gi, "")
-                            .replace(/href="javascript:[^"]*"/gi, "href=\"#\"")
+                            .replace(/href="javascript:[^"]*"/gi, "href=\"#\" target=\"_blank\" rel=\"noopener\"")
                             .replace(/style="[^"]*"/g, "")
                             .replace(/class="[^"]*"/g, "");
                         setDiyanetTafsir(cleanText);
@@ -1757,6 +1769,8 @@
 
                             {/* Mini Playlist Modal */}
                             {showModal && (
+                                <>
+                                <div className="fixed inset-0 z-40" onClick={closeModal} />
                                 <div className="absolute right-0 top-8 z-50 w-48 bg-white dark:bg-black rounded-lg shadow-xl border border-gray-200 dark:border-neutral-800 p-2 fade-in">
                                     <div className="flex justify-between items-center mb-2 pb-2 border-b dark:border-neutral-800">
                                         <span className="text-xs font-bold dark:text-slate-100">Listeye Ekle</span>
@@ -1775,6 +1789,7 @@
                                         <button onClick={() => { if (newPlaylist) { const p = { id: Date.now(), name: newPlaylist, items: [ayahData] }; setPlaylists(prevPlaylists => [...prevPlaylists, p]); showToast(`'${newPlaylist}' listesi oluşturuldu ve ayet eklendi ✓`); closeModal(); } }} className="bg-emerald-600 text-white px-2 rounded hover:bg-emerald-700"><i className="fa-solid fa-plus text-xs"></i></button>
                                     </div>
                                 </div>
+                                </>
                             )}
                         </div>
                     </div>
@@ -2497,9 +2512,9 @@
                                 </div>
                                 <div className="flex items-center bg-emerald-800 rounded-lg px-2 py-1 gap-2 border border-emerald-600/30">
                                     <i className="fa-solid fa-font text-emerald-200 ml-1 text-[10px]"></i>
-                                    <button onClick={() => setFontSize(Math.max(14, fontSize - 2))} className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded-md text-xs hover:bg-emerald-500 font-bold">-</button>
+                                    <button onClick={() => setFontSize(prev => Math.max(14, prev - 2))} className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded-md text-xs hover:bg-emerald-500 font-bold">-</button>
                                     <span className="text-xs font-mono w-4 text-center">{fontSize}</span>
-                                    <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded-md text-xs hover:bg-emerald-500 font-bold">+</button>
+                                    <button onClick={() => setFontSize(prev => Math.min(32, prev + 2))} className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded-md text-xs hover:bg-emerald-500 font-bold">+</button>
                                 </div>
                             </div>
                         </div>
@@ -2526,7 +2541,7 @@
                         <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
                             <div className="bg-white dark:bg-black dark:border dark:border-neutral-800 p-6 rounded-xl w-full max-w-sm">
                                 <h3 className="font-bold mb-4 dark:text-white">Seçilenleri Listeye Ekle</h3>
-                                <input type="text" placeholder="Yeni Liste Adı" value={newListName} onChange={(e) => setNewListName(e.target.value)} className="w-full p-2 border rounded mb-4 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
+                                <input type="text" placeholder="Yeni Liste Adı" value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleBulkAdd(); }} className="w-full p-2 border rounded mb-4 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
                                 <div className="flex justify-end gap-2">
                                     <button onClick={() => { setPlaylistModal(false); setNewListName(""); }} className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">İptal</button>
                                     <button onClick={handleBulkAdd} className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Oluştur ve Ekle</button>
@@ -2538,7 +2553,7 @@
                                             <button key={p.id} onClick={() => {
                                                 const updated = { ...p, items: [...p.items, ...selectedAyahs.filter(s => !p.items.some(pi => pi.number === s.number))] };
                                                 setPlaylists(prev => prev.map(pr => pr.id === p.id ? updated : pr));
-                                                showToast(`${selectedAyahs.length} ayet '${p.name}' listesine eklendi.`);
+                                                showToast(`${selectedAyahs.filter(s => !p.items.some(pi => pi.number === s.number)).length} ayet '${p.name}' listesine eklendi.`);
                                                 setSelectedAyahs([]);
                                                 setPlaylistModal(false);
                                             }} className="text-left text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/20">{p.name}</button>
