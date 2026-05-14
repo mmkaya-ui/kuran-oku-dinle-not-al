@@ -424,9 +424,9 @@
                 const Utils = {
                     normalizeText(val) {
                         if (!val) return '';
-                        const trMap = { 'İ': 'i', 'I': 'ı', 'ı': 'i', 'ş': 's', 'Ş': 's', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u', 'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c' };
+                        const trMap = { 'İ': 'i', 'I': 'ı', 'ı': 'i', 'ş': 's', 'Ş': 's', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u', 'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c', 'â': 'a', 'Â': 'a', 'î': 'i', 'Î': 'i', 'û': 'u', 'Û': 'u' };
                         return String(val)
-                            .replace(/[İIışŞğĞüÜöÖçÇ]/g, c => trMap[c] || c)
+                            .replace(/[İIışŞğĞüÜöÖçÇâÂîÎûÛ]/g, c => trMap[c] || c)
                             .toLowerCase()
                             .normalize("NFD")
                             .replace(/[\u0300-\u036f]/g, "");
@@ -940,7 +940,7 @@
                         }
                     }
                 }
-            }, [ayahs, pendingJump]);
+            }, [ayahs, pendingJump, displayLimit]);
 
             // Player State
             const [activeAyah, setActiveAyah] = useState(null);
@@ -1220,7 +1220,7 @@
                     playAyah(list[idx + 1]);
                 } else if (idx === list.length - 1 && repeatMode === 'all') {
                     // Listenin veya Surenin sonuna gelindiğinde ve "Tümünü Tekrarla" açıksa başa dön
-                    playAyah(list[0]);
+                    playAyah(list[0], { forcePlay: true });
                 } else if (viewMode === 'reader' && activeSurah && idx === list.length - 1) {
                     // Tekrar kapalıysa ve sure bittiyse sonraki sureye geç
                     let nextSurah = null;
@@ -1282,7 +1282,7 @@
                         audio: editionsData.data[8]?.ayahs[index]?.audio || ""
                     }));
                     setAyahs(combinedAyahs);
-                } catch (e) { console.error(e); } finally { setLoading(false); }
+                } catch (e) { console.error(e); setAyahs([]); } finally { setLoading(false); }
             };
 
             const fetchDetailsForMatches = async (matchesToFetch) => {
@@ -1426,6 +1426,10 @@
                         if (remainder) {
                             scopedSurahID = foundSurah.id;
                             actualSearchTerm = remainder;
+                        } else {
+                            // Only surah name typed with trailing space — navigate to it
+                            const s = surahs.find(x => x.number === foundSurah.id);
+                            if (s) { fetchSurah(s); setSearching(false); return; }
                         }
                     }
 
@@ -1503,7 +1507,7 @@
                 };
 
                 return () => { window.dispatchQuranNavigation = null; };
-            }, [surahs, activeSurah, searchQuery]); // Deps ensuring we have latest data
+            }, [surahs, activeSurah, searchQuery, fetchSurah, handleSearch]); // Deps ensuring we have latest data
 
             const value = {
                 surahs, ayahs, viewMode, setViewMode, activeSurah, setActiveSurah, fetchSurah,
