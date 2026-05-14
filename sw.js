@@ -1,5 +1,5 @@
-const CACHE_NAME = 'quran-v4';
-const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v4';
+const CACHE_NAME = 'quran-v5';
+const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v5';
 
 const STATIC_ASSETS = [
     './',
@@ -7,7 +7,9 @@ const STATIC_ASSETS = [
     './manifest.json',
     './favicon.png',
     './icon-192.png',
-    './icon-512.png'
+    './icon-512.png',
+    './icon-96.png',
+    './apple-touch-icon.png'
 ];
 
 // Install Event - Precache static assets
@@ -73,8 +75,50 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 3. Static Assets & App Shell (HTML, CSS, JS)
-    // Strategy: Stale-While-Revalidate
+    // 3. Google Fonts — Cache First
+    if (url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com') {
+        event.respondWith(
+            caches.match(event.request).then((cachedResponse) => {
+                if (cachedResponse) return cachedResponse;
+                return fetch(event.request).then((networkResponse) => {
+                    return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
+                        cache.put(event.request, networkResponse.clone());
+                        return networkResponse;
+                    });
+                });
+            })
+        );
+        return;
+    }
+
+    // 4. CDN assets (Tailwind, XLSX, React, Babel, FontAwesome) — Cache First
+    if (url.origin === 'https://cdn.tailwindcss.com' ||
+        url.origin === 'https://cdnjs.cloudflare.com' ||
+        url.origin === 'https://unpkg.com') {
+        event.respondWith(
+            caches.match(event.request).then((cachedResponse) => {
+                if (cachedResponse) return cachedResponse;
+                return fetch(event.request).then((networkResponse) => {
+                    return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
+                        if (networkResponse.status === 200) {
+                            cache.put(event.request, networkResponse.clone());
+                        }
+                        return networkResponse;
+                    });
+                });
+            })
+        );
+        return;
+    }
+
+    // 5. Google Sheets (ders programı verisi) — Network only, no caching
+    // App handles its own localStorage caching for this
+    if (url.origin === 'https://docs.google.com') {
+        event.respondWith(fetch(event.request));
+        return;
+    }
+
+    // 6. Static Assets & App Shell — Stale-While-Revalidate
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             const networkFetch = fetch(event.request).then((networkResponse) => {
@@ -84,9 +128,7 @@ self.addEventListener('fetch', (event) => {
                     }
                     return networkResponse;
                 });
-            }).catch(() => {
-                // Return cached response or fallback page if offline
-            });
+            }).catch(() => cachedResponse);
 
             return cachedResponse || networkFetch;
         })
