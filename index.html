@@ -1324,6 +1324,23 @@
             playPrevRef.current = playPrev;
 
             const fetchSurah = async (surah) => {
+                // Senaryo 1: Aynı sure zaten yüklü — fetch atla, direkt jump yap
+                if (surah.number === activeSurah?.number && ayahs.length > 0 && jumpTargetRef.current) {
+                    const { ayahNumber, shouldPlay } = jumpTargetRef.current;
+                    jumpTargetRef.current = null;
+                    const target = ayahs.find(a => a.numberInSurah === ayahNumber);
+                    if (target) {
+                        const idx = ayahs.indexOf(target);
+                        skipDisplayResetRef.current = true;
+                        setDisplayLimit(Math.max(idx + 10, 10));
+                        setTimeout(() => {
+                            setActiveAyah(target);
+                            if (shouldPlay) playAyahRef.current?.(target, { forcePlay: true });
+                        }, 50);
+                    }
+                    return;
+                }
+
                 setLoading(true); setLoadingText(`${getSurahNameTR(surah.number)} suresi yükleniyor...`);
                 // Only push navigation state if the Quran view is actually visible
                 const quranVisible = !document.getElementById('quran-root')?.classList.contains('hidden');
@@ -1332,6 +1349,8 @@
                 } else {
                     setViewMode('reader');
                 }
+                // Senaryo 2: Farklı sure — eski ayetleri temizleme, yüklenene kadar ekranda kalsın
+                // (setAyahs([]) kaldırıldı — 1. ayete flash sorunu bu yüzden oluyordu)
                 setSearchQuery(''); setRawMatches([]); setDetailedResults([]); setActiveSurah(surah);
 
                 try {
