@@ -858,8 +858,7 @@
             const [playbackRate, setPlaybackRate] = useState(1);
             const [repeatMode, setRepeatMode] = useState('none');
             const autoPlayAfterLoad = useRef(false);
-            const skipDisplayReset = useRef(false);
-            const [pendingJump, setPendingJump] = useState(null);
+            const jumpTargetRef = useRef(null); // { ayahNumber, shouldPlay }
             const [toastMessage, setToastMessage] = useState("");
             const toastTimerRef = useRef(null);
 
@@ -906,51 +905,27 @@
             useEffect(() => {
                 if (ayahs.length === 0) return;
 
-                // pendingJump önceliklidir — her ikisi aynı anda tetiklenirse çift ses olur
-                if (pendingJump) {
-                    autoPlayAfterLoad.current = false;
+                // Bekleyen ayet atlamasi varsa isleme al
+                if (jumpTargetRef.current) {
+                    const { ayahNumber, shouldPlay } = jumpTargetRef.current;
+                    jumpTargetRef.current = null;
+                    const target = ayahs.find(a => a.numberInSurah === ayahNumber);
+                    if (target) {
+                        const idx = ayahs.indexOf(target);
+                        setDisplayLimit(Math.max(idx + 10, 10));
+                        setTimeout(() => {
+                            setActiveAyah(target);
+                            if (shouldPlay) playAyahRef.current?.(target, { forcePlay: true });
+                        }, 300);
+                        return;
+                    }
                 }
 
                 if (autoPlayAfterLoad.current) {
-                    playAyah(ayahs[0]);
                     autoPlayAfterLoad.current = false;
+                    playAyah(ayahs[0]);
                 }
-
-                // Bekleyen atlama isteği varsa işle
-                if (pendingJump && ayahs.length > 0) {
-                    // 1. Doğru sure seçili mi?
-                    // 2. Yüklenen ayetler GERÇEKTEN o sureye mi ait? (Eski veriyi kullanma)
-                    const isSurahMatch = activeSurah && activeSurah.number === pendingJump.surahNumber;
-                    const isDataLoaded = ayahs[0] && ayahs[0].surahNumber === pendingJump.surahNumber;
-
-                    if (isSurahMatch && isDataLoaded) {
-                        const targetAyah = ayahs.find(a => a.numberInSurah === pendingJump.ayahNumber);
-
-                        if (targetAyah) {
-                            // displayLimit reset'ini jump tamamlanana kadar engelle
-                            skipDisplayReset.current = true;
-
-                            // 1. Görünürlük limitini artır
-                            const idx = ayahs.indexOf(targetAyah);
-                            setDisplayLimit(idx + 10);
-
-                            // 2. Playback ve Odaklanma
-                            const capturedJump = pendingJump;
-                            const jumpTimer = setTimeout(() => {
-                                setActiveAyah(targetAyah);
-                                if (capturedJump.shouldPlay) {
-                                    playAyahRef.current?.(targetAyah, { forcePlay: true });
-                                }
-                                skipDisplayReset.current = false;
-                            }, 400);
-
-                            // İsteği temizle
-                            setPendingJump(null);
-                            return () => { clearTimeout(jumpTimer); skipDisplayReset.current = false; };
-                        }
-                    }
-                }
-            }, [ayahs, pendingJump, displayLimit]);
+            }, [ayahs]);
 
             // Player State
             const [activeAyah, setActiveAyah] = useState(null);
@@ -1081,20 +1056,13 @@
                             if (targetSurah) { fetchSurah(targetSurah); return; }
                         }
 
-                        // RESTORE STATE: Bookmark
+                        // RESTORE STATE: Bookmark — sadece sureyi yükle, ayete atlamayı yeni sistem yapar
                         const savedBookmarkRaw = localStorage.getItem('quran_bookmark');
                         if (savedBookmarkRaw) {
                             let b; try { b = JSON.parse(savedBookmarkRaw); } catch(e) { localStorage.removeItem('quran_bookmark'); }
-                            if (!b) { fetchSurah(data.data[0]); return; }
-                            const targetSurah = data.data.find(s => s.number === b.surahNumber);
-                            if (targetSurah) {
-                                setPendingJump({
-                                    surahNumber: b.surahNumber,
-                                    ayahNumber: b.numberInSurah,
-                                    shouldPlay: false
-                                });
-                                fetchSurah(targetSurah);
-                                return;
+                            if (b && b.surahNumber) {
+                                const targetSurah = data.data.find(s => s.number === b.surahNumber);
+                                if (targetSurah) { fetchSurah(targetSurah); return; }
                             }
                         }
 
@@ -1417,7 +1385,6 @@
                         }
                         const s = surahs.find(x => x.number === targetSurahID);
                         if (s) {
-                            setPendingJump({ surahNumber: targetSurahID, ayahNumber: targetVerseNum, shouldPlay: false });
                             fetchSurah(s);
                             setSearching(false); return;
                         }
@@ -1532,7 +1499,7 @@
                 playlists, setPlaylists, selectedAyahs, setSelectedAyahs, activePlaylist, setActivePlaylist,
                 fontSize, setFontSize, darkMode, setDarkMode, sortType, setSortType,
                 bookmark, fetchDetailsForMatches, loading, loadingText, searching,
-                displayLimit, setDisplayLimit, pendingJump, setPendingJump, navigate, skipDisplayReset,
+                displayLimit, setDisplayLimit, jumpTargetRef, navigate,
                 playbackRate, setPlaybackRate, repeatMode, setRepeatMode,
                 toastMessage, showToast
             };
@@ -1987,7 +1954,7 @@
                 searching, searchQuery, handleSearch, rawMatches, detailedResults, setDetailedResults, fetchDetailsForMatches,
                 loading, loadingText, playlists, activePlaylist, setActivePlaylist, setPlaylists,
                 selectedAyahs, setSelectedAyahs, bookmark, fetchSurah, surahs, sortType, setSortType,
-                activeAyah, displayLimit, setDisplayLimit, setPendingJump, skipDisplayReset
+                activeAyah, displayLimit, setDisplayLimit, jumpTargetRef
             } = useQuran();
 
             const lastScrolledAyah = useRef(null);
@@ -2024,8 +1991,8 @@
 
             const { sortedSurahs: sortedSurahsMobile } = useQuran();
 
-            // Infinite Scroll Logic — skipDisplayReset aktifken sıfırlama, jump tamamlanana kadar limit korunur
-            useEffect(() => { if (!skipDisplayReset.current) setDisplayLimit(10); }, [viewMode, activeSurah, searchQuery]);
+            // Infinite Scroll Logic
+            useEffect(() => { setDisplayLimit(10); }, [viewMode, activeSurah, searchQuery]);
 
             const handleLoadMore = useCallback(() => {
                 if (viewMode === 'reader' && displayLimit < ayahs.length) {
@@ -2133,34 +2100,23 @@
                             </div>
                         )}
 
+
                         {/* Bookmark Prompt */}
-                        {showContinueReading && surahs.length > 0 && (
+                        {showContinueReading && (
                             <div className="mb-6 bg-emerald-100 dark:bg-emerald-900/30 p-4 rounded-xl flex justify-between items-center shadow-sm border border-emerald-200 dark:border-emerald-800">
                                 <div>
                                     <h4 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm">Son Okunan</h4>
-                                    <p className="text-xs text-emerald-700 dark:text-emerald-400">{bookmark.surah} Suresi, {bookmark.numberInSurah || '?'} . Ayet</p>
+                                    <p className="text-xs text-emerald-700 dark:text-emerald-400">{bookmark.surah} Suresi, {bookmark.numberInSurah}. Ayet</p>
                                 </div>
                                 <button onClick={() => {
-                                    if (!bookmark) return;
-
-                                    const targetSurahNum = parseInt(bookmark.surahNumber || bookmark.surah_number);
+                                    const targetSurahNum = parseInt(bookmark.surahNumber);
                                     const targetAyahNum = parseInt(bookmark.numberInSurah);
-
                                     if (!targetSurahNum || !targetAyahNum) return;
-
                                     const s = surahs.find(x => x.number === targetSurahNum);
-                                    if (s) {
-                                        // 1. Hedefi belirle (State güncellemesi)
-                                        setPendingJump({
-                                            surahNumber: targetSurahNum,
-                                            ayahNumber: targetAyahNum,
-                                            shouldPlay: true
-                                        });
-
-                                        // 2. Sureyi yükle (Zaten yüklüyse bile fetchSurah state'i tazeler)
-                                        fetchSurah(s);
-                                    }
-                                }} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700">Devam Et</button>
+                                    if (!s) return;
+                                    jumpTargetRef.current = { ayahNumber: targetAyahNum, shouldPlay: true };
+                                    fetchSurah(s);
+                                }} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shrink-0 ml-4">Devam Et</button>
                             </div>
                         )}
 
