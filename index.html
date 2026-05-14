@@ -377,7 +377,12 @@
                     setTimeout(() => window.toggleQuranView(true, true), 100);
                 }
 
+                // hashchange: sadece popstate tarafından yönetilmeyen durumlarda (ör. kullanıcı URL bar'ı doğrudan değiştirince)
+                // popstate zaten tetikleniyorsa çift çalışmayı önlemek için flag kullanıyoruz
+                let _popstateJustFired = false;
+                window.addEventListener('popstate', () => { _popstateJustFired = true; setTimeout(() => { _popstateJustFired = false; }, 50); }, { capture: true });
                 window.addEventListener('hashchange', () => {
+                    if (_popstateJustFired) return;
                     if (window.location.hash.startsWith('#quran')) {
                         window.toggleQuranView(true, true);
                     } else {
@@ -896,12 +901,19 @@
             }, [activeAyah, viewMode, ayahs, detailedResults, activePlaylist]);
 
             useEffect(() => {
-                if (autoPlayAfterLoad.current && ayahs.length > 0) {
+                if (ayahs.length === 0) return;
+
+                // pendingJump önceliklidir — her ikisi aynı anda tetiklenirse çift ses olur
+                if (pendingJump) {
+                    autoPlayAfterLoad.current = false;
+                }
+
+                if (autoPlayAfterLoad.current) {
                     playAyah(ayahs[0]);
                     autoPlayAfterLoad.current = false;
                 }
 
-                // YENİ: Bekleyen atlama isteği varsa işle
+                // Bekleyen atlama isteği varsa işle
                 if (pendingJump && ayahs.length > 0) {
                     // 1. Doğru sure seçili mi?
                     // 2. Yüklenen ayetler GERÇEKTEN o sureye mi ait? (Eski veriyi kullanma)
@@ -1002,7 +1014,7 @@
                     audio.removeEventListener('pause', onPause);
                     audio.removeEventListener('ended', onEnded);
                 };
-            }, [ayahs, detailedResults, activeAyah, activePlaylist, viewMode, activeSurah, sortType, surahs, repeatMode, playbackRate]); // Added repeatMode and playbackRate
+            }, [ayahs, detailedResults, activeAyah, activePlaylist, viewMode, activeSurah, sortType, surahs, repeatMode]); // playbackRate handled by dedicated effect below
             
             // Handle playbackRate changes instantly
             useEffect(() => {
@@ -1071,7 +1083,8 @@
                         // RESTORE STATE: Bookmark
                         const savedBookmarkRaw = localStorage.getItem('quran_bookmark');
                         if (savedBookmarkRaw) {
-                            const b = JSON.parse(savedBookmarkRaw);
+                            let b; try { b = JSON.parse(savedBookmarkRaw); } catch(e) { localStorage.removeItem('quran_bookmark'); }
+                            if (!b) { fetchSurah(data.data[0]); return; }
                             const targetSurah = data.data.find(s => s.number === b.surahNumber);
                             if (targetSurah) {
                                 setPendingJump({
@@ -1348,7 +1361,7 @@
                                     }
                                 }
                                 setFullQuranIndex(quranData);
-                                try { localStorage.setItem('quran_index_v2', JSON.stringify(quranData)); } catch(e) {}
+                                try { localStorage.setItem('quran_index_v2', JSON.stringify(quranData)); } catch(e) { console.warn('[Cache] quran_index_v2 kaydedilemedi (quota?):', e); }
                             } catch (err) {
                                 console.error("Indexing failed:", err);
                                 alert("Arama hazırlanamadı: " + err.message);
