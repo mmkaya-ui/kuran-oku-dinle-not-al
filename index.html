@@ -1011,16 +1011,7 @@
                 const audio = audioRef.current;
                 audio.preload = "auto";
                 audio.setAttribute('playsinline', 'true');
-                audio.setAttribute('webkit-playsinline', 'true');
                 audio.playbackRate = playbackRate; // Apply initial or updated rate
-
-                // Android background playback için audio element'i DOM'a ekle
-                // (Detached audio element bazı Android cihazlarda background'da çalışmaz)
-                audio.style.display = 'none';
-                const quranRoot = document.getElementById('quran-root');
-                if (quranRoot && !audio.parentElement) {
-                    quranRoot.appendChild(audio);
-                }
 
                 const onPlay = () => setIsPlaying(true);
                 const onPause = () => setIsPlaying(false);
@@ -1108,33 +1099,6 @@
                     release();
                     document.removeEventListener('visibilitychange', handleVisibility);
                 };
-            }, [isPlaying]);
-
-            // Android Page Lifecycle — keep audio playing when app goes to background
-            useEffect(() => {
-                const audio = audioRef.current;
-                if (!audio) return;
-
-                // Android'de background playback için sayfa lifecycle'ı yönet
-                const handleVisibility = () => {
-                    if (document.visibilityState === 'hidden' && isPlaying) {
-                        // Android'de background'a geçerken audio'yu durdurmamak için
-                        // Media Session API'nin aktif kalması gerekir
-                        if ('mediaSession' in navigator) {
-                            navigator.mediaSession.playbackState = 'playing';
-                        }
-                    } else if (document.visibilityState === 'visible') {
-                        // Geri döndüğünde playback state'i sync et
-                        if (audio.paused && isPlaying) {
-                            setIsPlaying(false);
-                        } else if (!audio.paused && !isPlaying) {
-                            setIsPlaying(true);
-                        }
-                    }
-                };
-
-                document.addEventListener('visibilitychange', handleVisibility);
-                return () => document.removeEventListener('visibilitychange', handleVisibility);
             }, [isPlaying]);
 
             // Handle playbackRate changes instantly — also re-apply after loadedmetadata
