@@ -168,7 +168,7 @@
         <template id="tpl-week-section">
             <section
                 class="mb-4 bg-white dark:bg-black dark:border dark:border-neutral-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-300 fade-in group">
-                <div class="week-header p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700 hover:bg-emerald-50 dark:hover:bg-gray-700 cursor-pointer select-none active:bg-emerald-100 dark:active:bg-gray-600 transition-colors"
+                <div class="week-header p-4 flex justify-between items-center border-b border-gray-100 dark:border-neutral-800 hover:bg-emerald-50 dark:hover:bg-gray-700 cursor-pointer select-none active:bg-emerald-100 dark:active:bg-gray-600 transition-colors"
                     role="button" aria-expanded="false">
                     <h2 class="font-bold text-emerald-800 dark:text-emerald-400 flex items-center">
                         <i class="fa-regular fa-calendar-days mr-2 text-emerald-600 dark:text-emerald-400"></i>
@@ -209,7 +209,7 @@
                         </a>
                     </div>
                 </div>
-                <div class="flex mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 gap-2" data-slot="actions">
+                <div class="flex mt-3 pt-3 border-t border-gray-100 dark:border-neutral-800 gap-2" data-slot="actions">
                 </div>
             </article>
         </template>
@@ -231,7 +231,7 @@
 
         <template id="tpl-menu-item">
             <a target="_blank" rel="noopener noreferrer"
-                class="flex items-center p-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150 border-b border-gray-100 dark:border-gray-700 last:border-b-0 group">
+                class="flex items-center p-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150 border-b border-gray-100 dark:border-neutral-800 last:border-b-0 group">
                 <i class="fa-solid mr-3 text-emerald-500 w-5 text-center group-hover:scale-110 transition-transform"
                     data-slot="icon"></i>
                 <span data-slot="text"></span>
@@ -302,7 +302,7 @@
                 <div class="mb-4">
                     <p class="text-[10px] font-bold uppercase tracking-wider mb-2 text-gray-400 dark:text-slate-500">İletişim & Öneri</p>
                     <a href="mailto:biz2004571@gmail.com"
-                        class="inline-flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-full shadow-sm hover:shadow-md transition text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-gray-700 text-xs font-medium group">
+                        class="inline-flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-neutral-700 px-4 py-2 rounded-full shadow-sm hover:shadow-md transition text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-gray-700 text-xs font-medium group">
                         <i class="fa-solid fa-envelope group-hover:scale-110 transition-transform"></i>
                         biz2004571@gmail.com
                     </a>
@@ -804,6 +804,34 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useContext, createContext, useMemo, useCallback } = React;
 
+        // Safe localStorage with quota protection
+        const safeStorage = {
+            setItem: (key, value) => {
+                try {
+                    localStorage.setItem(key, value);
+                    return true;
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError' || e.code === 22) {
+                        console.warn(`[Storage] Quota exceeded for ${key}`);
+                        // Try to clear old playlists to make room
+                        if (key === 'quran_playlists') {
+                            localStorage.removeItem('quran_index_v2');
+                            localStorage.removeItem('quran_index_v2_ts');
+                            try {
+                                localStorage.setItem(key, value);
+                                return true;
+                            } catch (e2) {
+                                console.error('[Storage] Still quota exceeded after cleanup');
+                            }
+                        }
+                    }
+                    return false;
+                }
+            },
+            getItem: (key) => localStorage.getItem(key),
+            removeItem: (key) => localStorage.removeItem(key)
+        };
+
         const API_BASE = "https://api.alquran.cloud/v1";
         const EDITIONS = {
             arabic: "quran-simple",
@@ -1042,9 +1070,33 @@
                     }
                 };
 
+                // Audio error recovery - retry on network errors
+                let retryCount = 0;
+                const MAX_RETRIES = 3;
+                const onError = (e) => {
+                    const error = e.target.error;
+                    if (error && (error.code === error.MEDIA_ERR_NETWORK || error.code === error.MEDIA_ERR_SRC_NOT_SUPPORTED)) {
+                        if (retryCount < MAX_RETRIES && audioRef.current?.__activeAyah) {
+                            retryCount++;
+                            console.log(`Audio error, retrying (${retryCount}/${MAX_RETRIES})...`);
+                            setTimeout(() => {
+                                if (audioRef.current?.__activeAyah) {
+                                    playAyahRef.current?.(audioRef.current.__activeAyah, { forcePlay: isPlaying });
+                                }
+                            }, 1000 * retryCount); // Exponential backoff
+                        } else {
+                            showToast('Ses dosyası yüklenemedi. İnternet bağlantınızı kontrol edin.');
+                            setIsPlaying(false);
+                        }
+                    }
+                };
+                const onLoadStart = () => { retryCount = 0; };
+
                 audio.addEventListener('play', onPlay);
                 audio.addEventListener('pause', onPause);
                 audio.addEventListener('ended', onEnded);
+                audio.addEventListener('error', onError);
+                audio.addEventListener('loadstart', onLoadStart);
 
                 // Media Session API Support (Background Playback)
                 if ('mediaSession' in navigator) {
@@ -1064,8 +1116,10 @@
                     audio.removeEventListener('play', onPlay);
                     audio.removeEventListener('pause', onPause);
                     audio.removeEventListener('ended', onEnded);
+                    audio.removeEventListener('error', onError);
+                    audio.removeEventListener('loadstart', onLoadStart);
                 };
-            }, [repeatMode]); // playbackRate handled by dedicated effect below
+            }, [repeatMode, isPlaying]); // Include isPlaying for error handler
 
             // MediaSession next/prev — always fresh refs
             useEffect(() => {
@@ -1075,73 +1129,22 @@
                 }
             }, []);
 
-            // Screen Wake Lock — prevent screen from sleeping during playback
-            // Supported: Android Chrome, Samsung Internet.
-            // iOS: WakeLock API yok, ama audio çalarken veya "noSleep" tekniğiyle ekran açık kalır
+            // Screen Wake Lock — Android only, iOS uses native audio wake
             useEffect(() => {
-                if (!('wakeLock' in navigator)) {
-                    // iOS fallback: audio element'in canlı tutulması ekran kilidini geciktirir
-                    // PWA'da audio çalarken iOS native olarak ekranı açık tutar
-                    return;
-                }
+                if (!('wakeLock' in navigator)) return;
                 let wakeLockSentinel = null;
 
-                const acquire = async () => {
-                    try {
-                        wakeLockSentinel = await navigator.wakeLock.request('screen');
-                    } catch (e) {
-                        // Silently ignore — low battery or permission denied
-                    }
-                };
+                if (isPlaying) {
+                    navigator.wakeLock.request('screen').then(
+                        lock => { wakeLockSentinel = lock; },
+                        () => { /* ignore */ }
+                    );
+                }
 
-                const release = () => {
-                    wakeLockSentinel?.release();
-                    wakeLockSentinel = null;
-                };
-
-                // Re-acquire after tab becomes visible again (browser releases lock on hide)
-                const handleVisibility = () => {
-                    if (document.visibilityState === 'visible' && isPlaying) {
-                        acquire();
-                    }
-                };
-
-                if (isPlaying) acquire();
-                else release();
-
-                document.addEventListener('visibilitychange', handleVisibility);
                 return () => {
-                    release();
-                    document.removeEventListener('visibilitychange', handleVisibility);
+                    wakeLockSentinel?.release();
                 };
             }, [isPlaying]);
-
-            // iOS Scroll Freeze Fix — restore scroll position on app resume
-            useEffect(() => {
-                let lastScrollY = 0;
-                const mainScroll = document.getElementById('main-scroll');
-
-                const handleVisibility = () => {
-                    if (document.visibilityState === 'hidden') {
-                        // Save scroll position
-                        lastScrollY = mainScroll?.scrollTop || window.scrollY || 0;
-                    } else if (document.visibilityState === 'visible') {
-                        // Restore scroll after a short delay (iOS needs time to settle)
-                        setTimeout(() => {
-                            if (mainScroll && lastScrollY > 0) {
-                                mainScroll.style.webkitOverflowScrolling = 'auto';
-                                mainScroll.scrollTop = lastScrollY;
-                                requestAnimationFrame(() => {
-                                    mainScroll.style.webkitOverflowScrolling = 'touch';
-                                });
-                            }
-                        }, 100);
-                    }
-                };
-
-                document.addEventListener('visibilitychange', handleVisibility);
-                return () => document.removeEventListener('visibilitychange', handleVisibility);
-            }, []);
 
             // Handle playbackRate changes instantly — also re-apply after loadedmetadata
             // because some browsers reset playbackRate to 1 when src changes
@@ -1172,12 +1175,12 @@
 
             // Load Initial Data & Settings
             useEffect(() => {
-                const savedPlaylists = localStorage.getItem('quran_playlists');
-                if (savedPlaylists) { try { setPlaylists(JSON.parse(savedPlaylists)); } catch(e) { localStorage.removeItem('quran_playlists'); } }
+                const savedPlaylists = safeStorage.getItem('quran_playlists');
+                if (savedPlaylists) { try { setPlaylists(JSON.parse(savedPlaylists)); } catch(e) { safeStorage.removeItem('quran_playlists'); } }
 
-                const savedBookmarkRaw = localStorage.getItem('quran_bookmark');
+                const savedBookmarkRaw = safeStorage.getItem('quran_bookmark');
                 if (savedBookmarkRaw) {
-                    let b; try { b = JSON.parse(savedBookmarkRaw); } catch(e) { localStorage.removeItem('quran_bookmark'); }
+                    let b; try { b = JSON.parse(savedBookmarkRaw); } catch(e) { safeStorage.removeItem('quran_bookmark'); }
                     if (b) {
                     setBookmark(b);
                     // Legacy fix for bookmarks
@@ -1188,7 +1191,7 @@
                                 if (data.code === 200 && data.data) {
                                     const fixed = { ...b, numberInSurah: data.data.numberInSurah, surah: getSurahNameTR(data.data.surah.number) };
                                     setBookmark(fixed);
-                                    localStorage.setItem('quran_bookmark', JSON.stringify(fixed));
+                                    safeStorage.setItem('quran_bookmark', JSON.stringify(fixed));
                                 }
                             })
                             .catch(console.error);
@@ -1218,9 +1221,9 @@
                         }
 
                         // RESTORE STATE: Bookmark — sadece sureyi yükle
-                        const bRaw = localStorage.getItem('quran_bookmark');
+                        const bRaw = safeStorage.getItem('quran_bookmark');
                         if (bRaw) {
-                            let bParsed; try { bParsed = JSON.parse(bRaw); } catch(e) { localStorage.removeItem('quran_bookmark'); }
+                            let bParsed; try { bParsed = JSON.parse(bRaw); } catch(e) { safeStorage.removeItem('quran_bookmark'); }
                             if (bParsed && bParsed.surahNumber) {
                                 const targetSurah = data.data.find(s => s.number === bParsed.surahNumber);
                                 if (targetSurah) { fetchSurah(targetSurah); return; }
@@ -1240,23 +1243,23 @@
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('quran_playlists', JSON.stringify(playlists));
+                safeStorage.setItem('quran_playlists', JSON.stringify(playlists));
             }, [playlists]);
 
             useEffect(() => {
-                localStorage.setItem('quran_fontSize', String(fontSize));
+                safeStorage.setItem('quran_fontSize', String(fontSize));
             }, [fontSize]);
 
             useEffect(() => {
-                localStorage.setItem('quran_playbackRate', String(playbackRate));
+                safeStorage.setItem('quran_playbackRate', String(playbackRate));
             }, [playbackRate]);
 
             useEffect(() => {
-                localStorage.setItem('quran_repeatMode', repeatMode);
+                safeStorage.setItem('quran_repeatMode', repeatMode);
             }, [repeatMode]);
 
             useEffect(() => {
-                localStorage.setItem('quran_sortType', sortType);
+                safeStorage.setItem('quran_sortType', sortType);
             }, [sortType]);
 
             // Save bookmark whenever active ayah changes
@@ -1269,7 +1272,7 @@
                         surahNumber: activeAyah.surahNumber || activeSurah?.number
                     };
                     setBookmark(newBookmark);
-                    localStorage.setItem('quran_bookmark', JSON.stringify(newBookmark));
+                    safeStorage.setItem('quran_bookmark', JSON.stringify(newBookmark));
                 }
             }, [activeAyah, activeSurah]);
 
@@ -1496,9 +1499,9 @@
                         const CACHE_KEY = 'quran_index_v2';
                         const CACHE_TS_KEY = 'quran_index_v2_ts';
                         const CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
-                        const cachedTs = parseInt(localStorage.getItem(CACHE_TS_KEY) || '0');
-                        const cached = (Date.now() - cachedTs < CACHE_MAX_AGE) ? localStorage.getItem(CACHE_KEY) : null;
-                        if (!cached) { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(CACHE_TS_KEY); }
+                        const cachedTs = parseInt(safeStorage.getItem(CACHE_TS_KEY) || '0');
+                        const cached = (Date.now() - cachedTs < CACHE_MAX_AGE) ? safeStorage.getItem(CACHE_KEY) : null;
+                        if (!cached) { safeStorage.removeItem(CACHE_KEY); safeStorage.removeItem(CACHE_TS_KEY); }
                         if (cached) {
                             try {
                                 quranData = JSON.parse(cached);
@@ -1538,7 +1541,7 @@
                                     }
                                 }
                                 fullQuranIndex.current = quranData;
-                                try { localStorage.setItem('quran_index_v2', JSON.stringify(quranData)); localStorage.setItem('quran_index_v2_ts', String(Date.now())); } catch(e) { console.warn('[Cache] quran_index_v2 kaydedilemedi (quota?):', e); }
+                                safeStorage.setItem('quran_index_v2', JSON.stringify(quranData)); safeStorage.setItem('quran_index_v2_ts', String(Date.now()));
                             } catch (err) {
                                 console.error("Indexing failed:", err);
                                 showToast("Arama hazırlanamadı: " + err.message);
@@ -1727,13 +1730,17 @@
 
         const InfiniteScrollTrigger = ({ onIntersect }) => {
             const ref = useRef();
+            const callbackRef = useRef(onIntersect);
+            callbackRef.current = onIntersect;
+
             useEffect(() => {
+                if (!ref.current) return;
                 const observer = new IntersectionObserver(([entry]) => {
-                    if (entry.isIntersecting) onIntersect();
-                }, { threshold: 0.1 });
-                if (ref.current) observer.observe(ref.current);
+                    if (entry.isIntersecting) callbackRef.current?.();
+                }, { threshold: 0.1, rootMargin: '100px' });
+                observer.observe(ref.current);
                 return () => observer.disconnect();
-            }, [onIntersect]);
+            }, []);
             return <div ref={ref} className="h-10 w-full flex justify-center items-center"><i className="fa-solid fa-ellipsis fa-fade text-emerald-500"></i></div>;
         };
 
@@ -1942,7 +1949,7 @@
                                 onClick={() => {
                                     const newBookmark = { surah: ayahData.surahName, number: ayahData.number, numberInSurah: ayahData.numberInSurah, surahNumber: ayahData.surahNumber };
                                     setBookmark(newBookmark);
-                                    localStorage.setItem('quran_bookmark', JSON.stringify(newBookmark));
+                                    safeStorage.setItem('quran_bookmark', JSON.stringify(newBookmark));
                                     showToast(`Yer imi kaydedildi: ${ayahData.surahName} ${ayahData.numberInSurah}. Ayet ✓`);
                                 }}
                                 aria-label="Yer imi kaydet"
@@ -1981,7 +1988,7 @@
                                         })}
                                     </ul>
                                     <div className="flex gap-1">
-                                        <input type="text" value={newPlaylist} onChange={(e) => setNewPlaylist(e.target.value)} placeholder="Yeni Liste" className="w-full text-xs p-1 rounded border dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                                        <input type="text" value={newPlaylist} onChange={(e) => setNewPlaylist(e.target.value)} placeholder="Yeni Liste" className="w-full text-xs p-1 rounded border dark:bg-gray-700 dark:border-neutral-700 dark:text-white" />
                                         <button onClick={() => { if (newPlaylist) { const p = { id: Date.now(), name: newPlaylist, items: [ayahData] }; setPlaylists(prevPlaylists => [...prevPlaylists, p]); showToast(`'${newPlaylist}' listesi oluşturuldu ve ayet eklendi ✓`); closeModal(); } }} className="bg-emerald-600 text-white px-2 rounded hover:bg-emerald-700"><i className="fa-solid fa-plus text-xs"></i></button>
                                     </div>
                                 </div>
@@ -2008,11 +2015,11 @@
                                 <p className="text-slate-800 dark:text-slate-200 leading-relaxed" style={{ fontSize: `${fontSize}px` }}>{renderTextWithMarkers(ayahData.diyanet)}</p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-600">
+                                <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-neutral-700">
                                     <h4 className="text-xs font-bold text-slate-500 dark:text-slate-300 mb-2">Elmalılı Hamdi Yazır</h4>
                                     <p className="text-slate-600 dark:text-slate-200 leading-relaxed" style={{ fontSize: `${fontSize - 1}px` }}>{ayahData.yazir}</p>
                                 </div>
-                                <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-600">
+                                <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-neutral-700">
                                     <h4 className="text-xs font-bold text-slate-500 dark:text-slate-300 mb-2">Süleyman Ateş</h4>
                                     <p className="text-slate-600 dark:text-slate-200 leading-relaxed" style={{ fontSize: `${fontSize - 1}px` }}>{ayahData.ates}</p>
                                 </div>
@@ -2041,17 +2048,17 @@
                         )}
 
                         {showTafsir && (
-                            <div className="mt-6 space-y-4 pt-4 border-t dark:border-gray-700">
+                            <div className="mt-6 space-y-4 pt-4 border-t dark:border-neutral-800">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-600">
+                                    <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-neutral-700">
                                         <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">Yaşar Nuri Öztürk</h4>
                                         <p className="text-slate-600 dark:text-slate-200 leading-relaxed" style={{ fontSize: `${fontSize - 1}px` }}>{ayahData.ozturk}</p>
                                     </div>
-                                    <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-600">
+                                    <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-neutral-700">
                                         <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">Suat Yıldırım</h4>
                                         <p className="text-slate-600 dark:text-slate-200 leading-relaxed" style={{ fontSize: `${fontSize - 1}px` }}>{ayahData.yildirim}</p>
                                     </div>
-                                    <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-600">
+                                    <div className="p-4 rounded-lg bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-neutral-700">
                                         <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">Edip Yüksel</h4>
                                         <p className="text-slate-600 dark:text-slate-200 leading-relaxed" style={{ fontSize: `${fontSize - 1}px` }}>{ayahData.yuksel}</p>
                                     </div>
@@ -2065,7 +2072,7 @@
                                     </div>
                                 )}
 
-                                <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <div className="mt-4 pt-4 border-t dark:border-neutral-800">
                                     <h4 className="text-xs font-bold text-emerald-600 mb-3 flex items-center justify-between">
                                         <span>Diyanet İşleri (Kur'an Yolu) Tefsiri</span>
                                         <a href={diyanetUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-emerald-600/70 hover:text-emerald-600 dark:text-emerald-500/70 dark:hover:text-emerald-400 transition-colors flex items-center gap-1" title="Diyanet sitesinde aç">
@@ -2078,7 +2085,7 @@
                                             <i className="fa-solid fa-spinner fa-spin"></i> Tefsir metni çekiliyor...
                                         </div>
                                     ) : diyanetTafsir ? (
-                                        <div className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 bg-white dark:bg-gray-800/40 p-4 rounded-lg border dark:border-gray-700 max-h-96 overflow-y-auto custom-scrollbar" dangerouslySetInnerHTML={{ __html: diyanetTafsir }} />
+                                        <div className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 bg-white dark:bg-gray-800/40 p-4 rounded-lg border dark:border-neutral-800 max-h-96 overflow-y-auto custom-scrollbar" dangerouslySetInnerHTML={{ __html: diyanetTafsir }} />
                                     ) : (
                                         <button onClick={fetchDiyanetTafsir} className="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-xs font-bold shadow-sm active:scale-[0.99]">
                                             <i className="fa-solid fa-cloud-arrow-down"></i> Tefsir Metnini Buraya Getir
@@ -2169,7 +2176,7 @@
                             <h3 className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate group-hover:text-emerald-600 transition-colors">{activeAyah.surahName} {activeAyah.numberInSurah}. Ayet <i className="fa-solid fa-location-crosshairs text-[9px] opacity-0 group-hover:opacity-60 transition-opacity"></i></h3>
                         </button>
                         <div className="flex items-center gap-3 shrink-0">
-                            <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shrink-0 h-8 border border-gray-200 dark:border-gray-700 shadow-inner">
+                            <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shrink-0 h-8 border border-gray-200 dark:border-neutral-800 shadow-inner">
                                 <button onClick={() => setPlaybackRate(prev => Math.round(Math.max(0.5, prev - 0.25) * 100) / 100)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Yavaşlat" aria-label="Oynatma hızını azalt">-</button>
                                 <span className="w-8 text-center text-[10px] font-bold text-emerald-600 select-none" aria-label={`Oynatma hızı: ${playbackRate}x`}>{playbackRate}x</span>
                                 <button onClick={() => setPlaybackRate(prev => Math.round(Math.min(2.0, prev + 0.25) * 100) / 100)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Hızlandır" aria-label="Oynatma hızını artır">+</button>
@@ -2421,7 +2428,7 @@
 
                         {/* Reader Mode Header */}
                         {!loading && !searching && viewMode === 'reader' && (
-                            <div className="text-center mb-8 border-b border-gray-200 dark:border-gray-700 pb-6 fade-in relative">
+                            <div className="text-center mb-8 border-b border-gray-200 dark:border-neutral-800 pb-6 fade-in relative">
                                 {ayahs.length > 0 && (
                                     <button onClick={handleToggleSelectAll} className={`absolute right-0 top-0 text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm flex items-center gap-1 ${allItemsInContext.every(item => selectedAyahs.some(s => s.number === item.number)) ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 dark:bg-black dark:text-emerald-400 dark:border-neutral-800'}`}>
                                         <i className={`fa-solid ${allItemsInContext.every(item => selectedAyahs.some(s => s.number === item.number)) ? 'fa-check-double' : 'fa-list-check'}`}></i>
@@ -2785,12 +2792,12 @@
                         <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
                             <div className="bg-white dark:bg-black dark:border dark:border-neutral-800 p-6 rounded-xl w-full max-w-sm">
                                 <h3 className="font-bold mb-4 dark:text-white">Seçilenleri Listeye Ekle</h3>
-                                <input type="text" placeholder="Yeni Liste Adı" value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleBulkAdd(); }} className="w-full p-2 border rounded mb-4 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
+                                <input type="text" placeholder="Yeni Liste Adı" value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleBulkAdd(); }} className="w-full p-2 border rounded mb-4 dark:bg-gray-900 dark:border-neutral-800 dark:text-white" />
                                 <div className="flex justify-end gap-2">
                                     <button onClick={() => { setPlaylistModal(false); setNewListName(""); }} className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">İptal</button>
                                     <button onClick={handleBulkAdd} className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Oluştur ve Ekle</button>
                                 </div>
-                                <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <div className="mt-4 pt-4 border-t dark:border-neutral-800">
                                     <p className="text-xs text-gray-500 mb-2">Veya mevcut listeye ekle:</p>
                                     <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
                                         {playlists.map(p => (

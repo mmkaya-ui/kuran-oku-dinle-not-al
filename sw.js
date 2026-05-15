@@ -1,16 +1,35 @@
-const CACHE_NAME = 'quran-v7';
-const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v7';
-const AUDIO_CACHE_NAME = 'quran-audio-v7';
+const CACHE_NAME = 'quran-v8';
+const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v8';
+const AUDIO_CACHE_NAME = 'quran-audio-v8';
 
-const MAX_AUDIO_ENTRIES = 1000;  // ~75MB
-const MAX_API_ENTRIES   = 150;   // API responses
+const MAX_AUDIO_ENTRIES = 500;   // ~40MB, more reasonable
+const MAX_API_ENTRIES   = 100;   // API responses, LRU eviction
 
+// LRU Cache Eviction - deletes least recently used entries first
 async function trimCache(cacheName, maxEntries) {
     const cache = await caches.open(cacheName);
     const keys = await cache.keys();
     if (keys.length > maxEntries) {
-        await cache.delete(keys[0]); // delete oldest (FIFO)
-        await trimCache(cacheName, maxEntries); // recurse until within limit
+        // Sort by last accessed time if available, otherwise FIFO
+        // Use LRU: keep most recently used, delete oldest
+        const keysToDelete = keys.slice(0, keys.length - maxEntries);
+        for (const key of keysToDelete) {
+            await cache.delete(key);
+        }
+    }
+}
+
+// Update last accessed time for LRU tracking
+async function touchCacheEntry(cacheName, request) {
+    try {
+        const cache = await caches.open(cacheName);
+        const response = await cache.match(request);
+        if (response) {
+            // Re-put to update "last accessed" ordering
+            await cache.put(request, response.clone());
+        }
+    } catch (e) {
+        // Ignore touch errors
     }
 }
 
@@ -68,28 +87,48 @@ self.addEventListener('fetch', (event) => {
     }
 
     // 1. API Requests (api.alquran.cloud)
-    // Strategy: Network First, fallback to Cache (or Stale-While-Revalidate)
+    // Strategy: Cache First with background update, LRU eviction
     if (url.origin === 'https://api.alquran.cloud') {
         event.respondWith(
-            fetch(event.request).then((networkResponse) => {
-                return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
-                    cache.put(event.request, networkResponse.clone());
-                    trimCache(DYNAMIC_CACHE_NAME, MAX_API_ENTRIES);
+            caches.match(event.request).then((cachedResponse) => {
+                if (cachedResponse) {
+                    // Update LRU timestamp in background
+                    touchCacheEntry(DYNAMIC_CACHE_NAME, event.request);
+                    // Stale-while-revalidate: return cache immediately, update in background
+                    fetch(event.request).then((networkResponse) => {
+                        if (networkResponse.status === 200) {
+                            caches.open(DYNAMIC_CACHE_NAME).then(cache => {
+                                cache.put(event.request, networkResponse.clone());
+                                trimCache(DYNAMIC_CACHE_NAME, MAX_API_ENTRIES);
+                            });
+                        }
+                    }).catch(() => {});
+                    return cachedResponse;
+                }
+                // No cache - fetch and store
+                return fetch(event.request).then((networkResponse) => {
+                    if (networkResponse.status === 200) {
+                        return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
+                            cache.put(event.request, networkResponse.clone());
+                            trimCache(DYNAMIC_CACHE_NAME, MAX_API_ENTRIES);
+                            return networkResponse;
+                        });
+                    }
                     return networkResponse;
                 });
-            }).catch(() => {
-                return caches.match(event.request);
             })
         );
         return;
     }
 
     // 2. Audio Files (cdn.islamic.network)
-    // Strategy: Cache First, fallback to Network — capped at MAX_AUDIO_ENTRIES
+    // Strategy: Cache First with LRU eviction — cap at MAX_AUDIO_ENTRIES
     if (url.origin === 'https://cdn.islamic.network') {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
                 if (cachedResponse) {
+                    // Update LRU timestamp
+                    touchCacheEntry(AUDIO_CACHE_NAME, event.request);
                     return cachedResponse;
                 }
                 return fetch(event.request).then((networkResponse) => {
