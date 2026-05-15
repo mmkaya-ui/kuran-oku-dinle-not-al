@@ -395,14 +395,27 @@
                     if (window.location.hash.startsWith('#quran')) {
                         // Parse hash for direct navigation (faster than delayed processing)
                         const hash = window.location.hash;
-                        const parts = hash.replace('#quran/', '').split('/');
+                        const path = hash.replace('#quran/', '');
+                        const parts = path.split('/');
                         const surahNum = parseInt(parts[0]);
                         const ayahNum = parts[1] ? parseInt(parts[1]) : null;
                         
                         window.toggleQuranView(true, true);
                         
+                        // Handle special views: notes, playlists
+                        if (path === 'notes' && window.dispatchQuranNavigation) {
+                            window.dispatchQuranNavigation({
+                                quran: true,
+                                view: 'my_notes'
+                            });
+                        } else if (path === 'playlists' && window.dispatchQuranNavigation) {
+                            window.dispatchQuranNavigation({
+                                quran: true,
+                                view: 'playlists_list'
+                            });
+                        }
                         // If we have surah number, dispatch immediately for faster navigation
-                        if (surahNum >= 1 && surahNum <= 114 && window.dispatchQuranNavigation) {
+                        else if (surahNum >= 1 && surahNum <= 114 && window.dispatchQuranNavigation) {
                             window.dispatchQuranNavigation({
                                 quran: true,
                                 view: 'reader',
@@ -1681,7 +1694,10 @@
                 if (quranVisible) {
                     const state = { quran: true, view, ...extraState };
                     const surahNum = extraState.surahNumber || activeSurah?.number;
-                    const hash = (view === 'reader' && surahNum) ? `#quran/${surahNum}` : '#quran';
+                    let hash = '#quran';
+                    if (view === 'reader' && surahNum) hash = `#quran/${surahNum}`;
+                    else if (view === 'my_notes') hash = '#quran/notes';
+                    else if (view === 'playlists_list') hash = '#quran/playlists';
                     history.pushState(state, '', hash);
                 }
                 setViewMode(view);
@@ -1728,6 +1744,14 @@
                                 setSearchQuery(state.query);
                                 handleSearch(state.query);
                             }
+                        }
+                        // Handle my_notes view
+                        if (state.view === 'my_notes') {
+                            setViewMode('my_notes');
+                        }
+                        // Handle playlists_list view
+                        if (state.view === 'playlists_list') {
+                            setViewMode('playlists_list');
                         }
                     }
                 };
@@ -2947,7 +2971,7 @@
         };
 
         const AppContainer = () => {
-            const { darkMode, setDarkMode, searchQuery, setSearchQuery, handleSearch, setViewMode, viewMode, activePlaylist, fontSize, setFontSize, selectedAyahs, setSelectedAyahs, playlists, setPlaylists, toastMessage, showToast, setRawMatches, setDetailedResults } = useQuran();
+            const { darkMode, setDarkMode, searchQuery, setSearchQuery, handleSearch, setViewMode, viewMode, activePlaylist, fontSize, setFontSize, selectedAyahs, setSelectedAyahs, playlists, setPlaylists, toastMessage, showToast, setRawMatches, setDetailedResults, navigate } = useQuran();
 
             // Sync Dark Mode with HTML
             useEffect(() => {
@@ -3097,19 +3121,19 @@
                             {/* Navigation Tabs */}
                             <div className="flex gap-1 mt-2 mb-1">
                                 <button
-                                    onClick={() => setViewMode('reader')}
+                                    onClick={() => navigate('reader')}
                                     className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${viewMode === 'reader' ? 'bg-white text-emerald-800 shadow-sm' : 'text-emerald-100 hover:bg-emerald-600'}`}
                                 >
                                     <i className="fa-solid fa-book-open text-[10px]"></i> Kur'an
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('my_notes')}
+                                    onClick={() => navigate('my_notes')}
                                     className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${viewMode === 'my_notes' ? 'bg-white text-emerald-800 shadow-sm' : 'text-emerald-100 hover:bg-emerald-600'}`}
                                 >
                                     <i className="fa-solid fa-comment text-[10px]"></i> Notlarım
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('playlists_list')}
+                                    onClick={() => navigate('playlists_list')}
                                     className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${viewMode === 'playlists_list' || viewMode === 'playlist_view' ? 'bg-white text-emerald-800 shadow-sm' : 'text-emerald-100 hover:bg-emerald-600'}`}
                                 >
                                     <i className="fa-solid fa-layer-group text-[10px]"></i> Listelerim
