@@ -1836,15 +1836,16 @@
 
             const handleShare = async () => {
                 const deepLink = `${window.location.origin}${window.location.pathname}#quran/${ayahData.surahNumber}/${ayahData.numberInSurah}`;
-                // Link metnin içinde - tıklanabilir
-                const shareText = `"${ayahData.diyanet}"\n\n— ${ayahData.surahName} Suresi, ${ayahData.numberInSurah}. Ayet\n\n${deepLink}`;
+                // WhatsApp/mobile fix: ONLY text field, no url field
+                // Link at end without extra newline prevents duplicate preview
+                const shareText = `"${ayahData.diyanet}"\n\n— ${ayahData.surahName} Suresi, ${ayahData.numberInSurah}. Ayet — ${deepLink}`;
                 if (navigator.share) {
                     try {
-                        // Sadece text gönder (title/url yok) - duplicate preview engelleme
+                        // ONLY text - no title, no url (these cause duplicate previews on mobile)
                         await navigator.share({ text: shareText });
                     } catch (err) { }
                 } else {
-                    // Fallback: kopyala
+                    // Fallback: clipboard
                     try {
                         await navigator.clipboard.writeText(shareText);
                         showToast("Ayet metni kopyalandı!");
