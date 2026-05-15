@@ -1576,9 +1576,11 @@
                 return results.filter(r => r !== null);
             };
 
+            const [currentSearchTerm, setCurrentSearchTerm] = useState('');
+
             const handleSearch = async (queryRaw) => {
                 if (!queryRaw.trim()) { setRawMatches([]); setDetailedResults([]); setViewMode('reader'); return; }
-                setSearching(true); setViewMode('search'); setRawMatches([]); setDetailedResults([]);
+                setSearching(true); setViewMode('search'); setRawMatches([]); setDetailedResults([]); setCurrentSearchTerm(queryRaw);
                 
                 try {
                     // 1. Build/Load Index (Multi-Translation)
@@ -1829,7 +1831,7 @@
 
             const value = {
                 surahs, sortedSurahs, ayahs, viewMode, setViewMode, activeSurah, setActiveSurah, fetchSurah,
-                searchQuery, setSearchQuery, handleSearch, rawMatches, detailedResults, setDetailedResults,
+                searchQuery, setSearchQuery, handleSearch, currentSearchTerm, rawMatches, detailedResults, setDetailedResults,
                 activeAyah, setActiveAyah, isPlaying, setIsPlaying, audioRef, playAyah, playNext, playPrev, closePlayer: () => { audioRef.current.pause(); setIsPlaying(false); setActiveAyah(null); },
                 playlists, setPlaylists, selectedAyahs, setSelectedAyahs, activePlaylist, setActivePlaylist,
                 fontSize, setFontSize, darkMode, setDarkMode, sortType, setSortType,
@@ -2394,7 +2396,7 @@
         const MainContent = () => {
             const {
                 viewMode, setViewMode, activeSurah, ayahs,
-                searching, searchQuery, handleSearch, rawMatches, detailedResults, setDetailedResults, fetchDetailsForMatches,
+                searching, searchQuery, handleSearch, currentSearchTerm, rawMatches, detailedResults, setDetailedResults, fetchDetailsForMatches,
                 loading, loadingText, fetchError, playlists, activePlaylist, setActivePlaylist, setPlaylists,
                 selectedAyahs, setSelectedAyahs, bookmark, fetchSurah, surahs, sortType, setSortType, sortedSurahs,
                 activeAyah, isPlaying, displayLimit, setDisplayLimit, jumpTargetRef, skipDisplayResetRef, closePlayer, showToast
@@ -2657,7 +2659,7 @@
                                     <>
                                         <div className="flex items-center justify-between mb-6">
                                             <div className="flex flex-col gap-1">
-                                                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">"{searchQuery}" Sonuçları ({rawMatches.length})</h2>
+                                                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">"{currentSearchTerm}" Sonuçları ({rawMatches.length})</h2>
                                                 <button onClick={() => setSortType(prev => prev === 'mushaf' ? 'revelation' : 'mushaf')} className="text-xs text-left bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-1 rounded w-fit hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex items-center gap-1">
                                                     <i className={`fa-solid ${sortType === 'mushaf' ? 'fa-arrow-down-1-9' : 'fa-clock-rotate-left'}`}></i>
                                                     {sortType === 'mushaf' ? 'Sıraya göre sıralı' : 'İniş sırasına göre sıralı'}
