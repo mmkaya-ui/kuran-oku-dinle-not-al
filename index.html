@@ -2642,8 +2642,6 @@
                 const loadNotesWithAyahs = async () => {
                     const loadedNotes = [];
                     let noteCount = 0;
-                    let skippedNoSurah = 0;
-                    let skippedNoAyah = 0;
                     
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
@@ -2651,69 +2649,72 @@
                         if (key && key.startsWith('quran_note_')) {
                             noteCount++;
                             const noteData = localStorage.getItem(key);
-                            console.log('[DEBUG] Processing note key:', key);
                             const match = key.match(/quran_note_(\d+)_(\d+)/);
                             if (match) {
                                 const surahNum = parseInt(match[1]);
                                 const ayahNum = parseInt(match[2]);
-                                console.log('[DEBUG] Parsed surah:', surahNum, 'ayah:', ayahNum);
                                 
+                                // Calculate global ayah number
+                                let globalNumber = 0;
                                 const surah = surahs.find(s => s.number === surahNum);
-                                if (!surah) {
-                                    console.log('[DEBUG] SKIPPED: Surah not found for', surahNum);
-                                    skippedNoSurah++;
-                                    continue;
+                                if (surah && surah.ayahs) {
+                                    const ayah = surah.ayahs.find(a => a.numberInSurah === ayahNum);
+                                    if (ayah) globalNumber = ayah.number;
                                 }
                                 
-                                const globalAyah = surah.ayahs?.find(a => a.numberInSurah === ayahNum);
-                                if (!globalAyah) {
-                                    console.log('[DEBUG] SKIPPED: Ayah not found in surah', surahNum, 'for ayahNum', ayahNum);
-                                    skippedNoAyah++;
-                                    continue;
+                                // If no surah data, estimate (rough approximation)
+                                if (!globalNumber && surahNum > 0 && ayahNum > 0) {
+                                    // This is a fallback - API call will use surahNum/ayahNum directly
+                                    globalNumber = surahNum * 1000 + ayahNum; // Temporary
                                 }
                                 
-                                console.log('[DEBUG] ADDED note for', surahNum, ':', ayahNum);
                                 loadedNotes.push({
                                     key,
                                     surahNum,
                                     ayahNum,
-                                    surahName: getSurahNameTR(surahNum),
+                                    surahName: surah ? getSurahNameTR(surahNum) : `Sure ${surahNum}`,
                                     note: noteData,
-                                    number: globalAyah.number,
-                                    globalAyah
+                                    number: globalNumber,
+                                    hasSurahData: !!surah
                                 });
                             }
                         }
                     }
                     
-                    console.log('[DEBUG MyNotesView] Total keys:', noteCount, 'Added:', loadedNotes.length, 'NoSurah:', skippedNoSurah, 'NoAyah:', skippedNoAyah);
+                    console.log('[DEBUG MyNotesView] Total keys:', noteCount, 'Added:', loadedNotes.length, 'surahs loaded:', surahs.length);
                     loadedNotes.sort((a, b) => {
                         if (a.surahNum !== b.surahNum) return a.surahNum - b.surahNum;
                         return a.ayahNum - b.ayahNum;
                     });
                     setNotes(loadedNotes);
 
-                    // Fetch ayah details
+                    // Fetch ayah details using surah:ayah format
                     const details = {};
                     for (const note of loadedNotes) {
                         try {
-                            const response = await fetch(`${API_BASE}/ayah/${note.number}/editions/${EDITIONS.arabic},${EDITIONS.tr_diyanet},${EDITIONS.transliteration}`);
+                            // Use surah:ayah format for API call
+                            const apiUrl = `${API_BASE}/ayah/${note.surahNum}:${note.ayahNum}/editions/${EDITIONS.arabic},${EDITIONS.tr_diyanet},${EDITIONS.transliteration}`;
+                            console.log('[DEBUG] Fetching ayah:', apiUrl);
+                            const response = await fetch(apiUrl);
                             const data = await response.json();
                             if (data.code === 200 && data.data) {
                                 const [arabic, turkish, transliteration] = data.data;
-                                details[note.number] = {
-                                    number: note.number,
+                                details[note.key] = {
+                                    number: arabic.number, // Use actual number from API
                                     numberInSurah: note.ayahNum,
                                     surahName: note.surahName,
                                     surahNumber: note.surahNum,
                                     text: arabic.text,
                                     diyanet: turkish.text,
                                     transliteration: transliteration.text,
-                                    audio: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${note.number}.mp3`
+                                    audio: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${arabic.number}.mp3`
                                 };
                                 setAyahDetails({ ...details });
+                                console.log('[DEBUG] Loaded ayah details for', note.key);
                             }
-                        } catch (e) { console.warn('Failed to fetch ayah:', note.number); }
+                        } catch (e) { 
+                            console.warn('[DEBUG] Failed to fetch ayah:', note.surahNum, ':', note.ayahNum, e.message);
+                        }
                     }
 
                     setLoadingNotes(false);
@@ -2801,8 +2802,24 @@
                     {/* Notes List with Ayah Cards */}
                     <div className="space-y-6">
                         {notes.map((note) => {
-                            const ayahData = ayahDetails[note.number];
-                            if (!ayahData) return null;
+                            const ayahData = ayahDetails[note.key];
+                            if (!ayahData) {
+                                // Show note without ayah card while loading
+                                return (
+                                    <div key={note.key} className="bg-white dark:bg-black p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded">
+                                                {note.surahName} {note.ayahNum}
+                                            </span>
+                                            <button onClick={() => deleteNote(note.key)} className="text-red-500 hover:text-red-600 p-1 rounded">
+                                                <i className="fa-solid fa-trash text-xs"></i>
+                                            </button>
+                                        </div>
+                                        <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">{note.note}</p>
+                                        <p className="text-xs text-gray-400 mt-2">Ayet detayları yükleniyor...</p>
+                                    </div>
+                                );
+                            }
 
                             return (
                                 <div key={note.key} className="relative">
