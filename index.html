@@ -1587,8 +1587,14 @@
             };
 
             const [currentSearchTerm, setCurrentSearchTerm] = useState('');
+            const searchAbortController = useRef(null);
+            const searchRequestId = useRef(0);
 
             const handleSearch = async (queryRaw) => {
+                // Cancel previous search
+                searchAbortController.current?.abort();
+                searchAbortController.current = new AbortController();
+                const currentRequestId = ++searchRequestId.current;
                 if (!queryRaw.trim()) { setRawMatches([]); setDetailedResults([]); setViewMode('reader'); return; }
                 setSearching(true); setViewMode('search'); setRawMatches([]); setDetailedResults([]); setCurrentSearchTerm(queryRaw);
                 
@@ -1732,15 +1738,24 @@
                     });
 
                     allMatches = sortMatches(allMatches, sortType);
+                    
+                    // Check if this is still the current search request
+                    if (currentRequestId !== searchRequestId.current) return;
                     setRawMatches(allMatches);
                     
                     const initialBatch = allMatches.slice(0, 5);
                     const details = await fetchDetailsForMatches(initialBatch);
+                    
+                    // Check again before setting results
+                    if (currentRequestId !== searchRequestId.current) return;
                     setDetailedResults(details);
                 } catch (e) {
                     console.error("Search error:", e);
                 } finally {
-                    setSearching(false); setLoadingText("");
+                    // Only clear searching flag if this is still the current request
+                    if (currentRequestId === searchRequestId.current) {
+                        setSearching(false); setLoadingText("");
+                    }
                 }
             };
 
@@ -2793,11 +2808,11 @@
         // My Notes View Component - Fast loading with stored ayah data
         const MyNotesView = () => {
             const { showToast, surahs, fetchSurah, setViewMode, viewMode } = useQuran();
-            const [notes, setNotes] = React.useState([]);
-            const [ayahDetails, setAyahDetails] = React.useState({});
+            const [notes, setNotes] = useState([]);
+            const [ayahDetails, setAyahDetails] = useState({});
 
             // Load notes with stored ayah data - NO API calls needed!
-            React.useEffect(() => {
+            useEffect(() => {
                 const loadNotes = () => {
                     const loadedNotes = [];
                     const details = {};
@@ -3575,8 +3590,8 @@
             if (!window.location.hash.includes('test')) return;
 
             const TestRunner = () => {
-                const [results, setResults] = React.useState([]);
-                const [running, setRunning] = React.useState(false);
+                const [results, setResults] = useState([]);
+                const [running, setRunning] = useState(false);
 
                 const tests = [
                     {
