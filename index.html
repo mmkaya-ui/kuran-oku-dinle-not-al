@@ -2035,7 +2035,7 @@
                                 <button onClick={() => setShowModal(true)} aria-label="Listeye ekle" className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-gray-700 dark:text-slate-300 hover:bg-emerald-100 hover:text-emerald-600"><i className="fa-solid fa-folder-plus text-xs"></i></button>
                             )}
                             <button onClick={togglePlay} className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-colors ${isActive && isPlaying ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-slate-200 text-slate-700 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-gray-700 dark:text-slate-300'}`}>
-                                {isActive && isPlaying ? <><i className="fa-solid fa-pause"></i> Duraklat</> : <><i className="fa-solid fa-play"></i> Dinle</>}
+                                {isActive && isPlaying ? <><i className="fa-solid fa-pause"></i> Dur</> : <><i className="fa-solid fa-play"></i> Dinle</>}
                             </button>
 
                             {/* Mini Playlist Modal */}
@@ -2254,7 +2254,7 @@
                                 {repeatMode === 'one' && <span className="absolute text-[8px] font-bold bottom-1 right-1.5 bg-white dark:bg-black rounded-full w-3 h-3 flex items-center justify-center leading-none">1</span>}
                             </button>
                             <button onClick={playPrev} aria-label="Önceki ayet" className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-slate-300 hover:text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-backward-step text-xs"></i></button>
-                            <button onClick={() => playAyah(activeAyah)} aria-label={isPlaying ? 'Duraklat' : 'Oynat'} className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-lg active:scale-95">
+                            <button onClick={() => playAyah(activeAyah)} aria-label={isPlaying ? 'Dur' : 'Oynat'} className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-lg active:scale-95">
                                 {isPlaying ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-1"></i>}
                             </button>
                             <button onClick={playNext} aria-label="Sonraki ayet" className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-slate-300 hover:text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-forward-step text-xs"></i></button>
@@ -3035,7 +3035,7 @@
                                         <ul className="space-y-1.5 pl-2">
                                             <li>Herhangi bir ayetin <span className="font-semibold">Dinle</span> butonuna bas, otomatik devam eder</li>
                                             <li>Alttaki çalar çubuğundan hız ayarla (0.5× – 2×) ve tekrar modunu seç</li>
-                                            <li>Klavye kısayolları: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Space</code> oynat/duraklat · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">→</code> sonraki · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">←</code> önceki</li>
+                                            <li>Klavye kısayolları: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Space</code> oynat/dur · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">→</code> sonraki · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">←</code> önceki</li>
                                         </ul>
                                     </section>
 
