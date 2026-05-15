@@ -2872,5 +2872,370 @@
             });
         }
     </script>
+
+    <!-- ========================================== -->
+    <!-- CONSOLE TEST UTILITIES (Global)             -->
+    <!-- ========================================== -->
+    <script>
+        // Global test utilities - run from console
+        window.TestUtils = {
+            // Rapid click stress test
+            rapidClickTest: (count = 20, interval = 100) => {
+                let i = 0;
+                const timer = setInterval(() => {
+                    const btn = document.querySelector('[aria-label="Sonraki ayet"]') || 
+                                document.querySelector('[aria-label="Next ayah"]');
+                    btn?.click();
+                    if (++i >= count) clearInterval(timer);
+                }, interval);
+                console.log(`🧪 Rapid click test: ${count} clicks at ${interval}ms interval`);
+            },
+
+            // Scroll performance test
+            scrollTest: () => {
+                const main = document.getElementById('main-scroll');
+                if (!main) return console.error('main-scroll not found');
+                
+                let lastScrollTime = performance.now();
+                let jankCount = 0;
+                
+                const handler = () => {
+                    const now = performance.now();
+                    const delta = now - lastScrollTime;
+                    if (delta > 32) {
+                        jankCount++;
+                        console.warn('⚠️ Scroll jank:', Math.round(delta), 'ms');
+                    }
+                    lastScrollTime = now;
+                };
+                
+                main.addEventListener('scroll', handler, { passive: true });
+                console.log('📊 Scroll monitoring started. Jank threshold: 32ms');
+                
+                // Auto-scroll test
+                let pos = 0;
+                const autoScroll = setInterval(() => {
+                    pos += 100;
+                    main.scrollTop = pos;
+                    if (pos > main.scrollHeight - main.clientHeight) {
+                        clearInterval(autoScroll);
+                        console.log('✅ Scroll test complete. Jank count:', jankCount);
+                        main.removeEventListener('scroll', handler);
+                    }
+                }, 50);
+            },
+
+            // Audio error simulation
+            simulateAudioError: () => {
+                const audio = document.querySelector('audio') || document.querySelector('video');
+                if (audio) {
+                    audio.dispatchEvent(new Event('error'));
+                    console.log('🎵 Audio error event dispatched');
+                } else {
+                    console.error('No audio element found');
+                }
+            },
+
+            // Network throttling simulation
+            throttleNetwork: (delay = 2000) => {
+                const originalFetch = window.fetch;
+                window.__originalFetch = originalFetch;
+                window.fetch = function(...args) {
+                    return new Promise(resolve => {
+                        setTimeout(() => resolve(originalFetch.apply(this, args)), delay);
+                    });
+                };
+                console.log('🐢 Network throttled:', delay + 'ms delay');
+            },
+
+            restoreNetwork: () => {
+                if (window.__originalFetch) {
+                    window.fetch = window.__originalFetch;
+                    console.log('⚡ Network restored');
+                }
+            },
+
+            // localStorage quota check
+            checkQuota: () => {
+                let total = 0;
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    const value = localStorage.getItem(key);
+                    total += (key.length + value.length) * 2; // UTF-16
+                }
+                const mb = (total / 1024 / 1024).toFixed(2);
+                console.log(`💾 localStorage usage: ${mb}MB`);
+                console.log('Keys:', localStorage.length);
+                return mb;
+            },
+
+            // Memory pressure test
+            memoryPressure: (size = 50) => {
+                const arrays = [];
+                for (let i = 0; i < size; i++) {
+                    arrays.push(new Array(100000).fill('x'));
+                }
+                window.__pressureArrays = arrays;
+                console.log(`🔥 Memory pressure: ${size}MB allocated`);
+                setTimeout(() => {
+                    delete window.__pressureArrays;
+                    console.log('🧹 Memory pressure released');
+                }, 10000);
+            },
+
+            // Full test suite
+            runAll: async () => {
+                console.group('🧪 Running Test Suite...');
+                
+                const tests = [
+                    ['localStorage', () => {
+                        const key = '__test_' + Date.now();
+                        localStorage.setItem(key, 'test');
+                        const val = localStorage.getItem(key);
+                        localStorage.removeItem(key);
+                        return val === 'test';
+                    }],
+                    ['Service Worker', () => 'serviceWorker' in navigator],
+                    ['Cache API', () => 'caches' in window],
+                    ['Media Session', () => 'mediaSession' in navigator],
+                    ['Wake Lock', () => 'wakeLock' in navigator],
+                    ['Audio Context', () => {
+                        try {
+                            const AudioContext = window.AudioContext || window.webkitAudioContext;
+                            return !!new AudioContext();
+                        } catch (e) {
+                            return false;
+                        }
+                    }]
+                ];
+
+                for (const [name, test] of tests) {
+                    try {
+                        const result = await test();
+                        console.log(result ? '✅' : '❌', name);
+                    } catch (e) {
+                        console.log('❌', name, '-', e.message);
+                    }
+                }
+                
+                window.TestUtils.checkQuota();
+                console.groupEnd();
+            }
+        };
+
+        console.log('🧪 Test utilities loaded. Try: TestUtils.runAll(), TestUtils.rapidClickTest(), TestUtils.scrollTest()');
+    </script>
+
+    <!-- ========================================== -->
+    <!-- TEST MODULE (Development Only)             -->
+    <!-- ========================================== -->
+    <script type="text/babel">
+        (function() {
+            // Only run tests in development mode
+            if (!window.location.hash.includes('test')) return;
+
+            const TestRunner = () => {
+                const [results, setResults] = React.useState([]);
+                const [running, setRunning] = React.useState(false);
+
+                const tests = [
+                    {
+                        name: 'SafeStorage Quota Protection',
+                        test: async () => {
+                            const key = '__test_quota_' + Date.now();
+                            let success = true;
+                            try {
+                                const bigData = 'x'.repeat(10 * 1024 * 1024); // 10MB
+                                localStorage.setItem(key, bigData);
+                                success = false; // Should throw
+                            } catch (e) {
+                                success = e.name === 'QuotaExceededError' || e.code === 22;
+                            } finally {
+                                localStorage.removeItem(key);
+                            }
+                            return success;
+                        }
+                    },
+                    {
+                        name: 'Audio Element Initialization',
+                        test: async () => {
+                            const audio = new Audio();
+                            audio.preload = 'auto';
+                            audio.setAttribute('playsinline', 'true');
+                            return audio.getAttribute('playsinline') === 'true';
+                        }
+                    },
+                    {
+                        name: 'Service Worker Registration',
+                        test: async () => {
+                            if (!('serviceWorker' in navigator)) return 'skipped';
+                            const reg = await navigator.serviceWorker.ready;
+                            return reg.active !== null;
+                        }
+                    },
+                    {
+                        name: 'Cache API Availability',
+                        test: async () => {
+                            if (!('caches' in window)) return 'skipped';
+                            const cache = await caches.open('__test_' + Date.now());
+                            await cache.put('/test', new Response('test'));
+                            const response = await cache.match('/test');
+                            const text = await response.text();
+                            return text === 'test';
+                        }
+                    },
+                    {
+                        name: 'Media Session API',
+                        test: async () => {
+                            return 'mediaSession' in navigator;
+                        }
+                    },
+                    {
+                        name: 'Wake Lock API (Android)',
+                        test: async () => {
+                            return 'wakeLock' in navigator;
+                        }
+                    },
+                    {
+                        name: 'Dark Mode Toggle',
+                        test: async () => {
+                            const html = document.documentElement;
+                            const original = html.classList.contains('dark');
+                            html.classList.toggle('dark', !original);
+                            const changed = html.classList.contains('dark') !== original;
+                            html.classList.toggle('dark', original);
+                            return changed;
+                        }
+                    },
+                    {
+                        name: 'localStorage Read/Write',
+                        test: async () => {
+                            const key = '__test_ls_' + Date.now();
+                            const value = { test: true, number: 123 };
+                            localStorage.setItem(key, JSON.stringify(value));
+                            const read = JSON.parse(localStorage.getItem(key));
+                            localStorage.removeItem(key);
+                            return read.test === true && read.number === 123;
+                        }
+                    },
+                    {
+                        name: 'Fetch API with CORS',
+                        test: async () => {
+                            try {
+                                const response = await fetch('https://api.alquran.cloud/v1/surah');
+                                return response.ok;
+                            } catch (e) {
+                                return false;
+                            }
+                        }
+                    },
+                    {
+                        name: 'JSON Parse Robustness',
+                        test: async () => {
+                            const tests = [
+                                JSON.parse('{"a":1}'),
+                                JSON.parse('[1,2,3]'),
+                                JSON.parse('"string"'),
+                                JSON.parse('null'),
+                                JSON.parse('true')
+                            ];
+                            return tests.every(t => t !== undefined);
+                        }
+                    }
+                ];
+
+                const runTests = async () => {
+                    setRunning(true);
+                    setResults([]);
+                    const newResults = [];
+
+                    for (const test of tests) {
+                        try {
+                            const start = performance.now();
+                            const result = await Promise.race([
+                                test.test(),
+                                new Promise((_, reject) => 
+                                    setTimeout(() => reject(new Error('Timeout')), 5000)
+                                )
+                            ]);
+                            const duration = Math.round(performance.now() - start);
+                            
+                            newResults.push({
+                                name: test.name,
+                                status: result === true ? 'pass' : result === 'skipped' ? 'skip' : 'fail',
+                                duration,
+                                error: result === false ? 'Test returned false' : null
+                            });
+                        } catch (e) {
+                            newResults.push({
+                                name: test.name,
+                                status: 'fail',
+                                duration: 0,
+                                error: e.message
+                            });
+                        }
+                    }
+
+                    setResults(newResults);
+                    setRunning(false);
+                };
+
+                const passed = results.filter(r => r.status === 'pass').length;
+                const failed = results.filter(r => r.status === 'fail').length;
+                const skipped = results.filter(r => r.status === 'skip').length;
+
+                return (
+                    <div className="fixed bottom-4 right-4 z-[999] bg-white dark:bg-black border border-gray-300 dark:border-neutral-700 rounded-lg shadow-xl p-4 w-80 max-h-[60vh] overflow-auto">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-sm dark:text-white">🧪 Test Suite</h3>
+                            <button 
+                                onClick={runTests}
+                                disabled={running}
+                                className={`text-xs px-3 py-1 rounded ${running ? 'bg-gray-300' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                            >
+                                {running ? 'Çalışıyor...' : 'Testleri Çalıştır'}
+                            </button>
+                        </div>
+                        
+                        {results.length > 0 && (
+                            <div className="mb-3 text-xs flex gap-3">
+                                <span className="text-emerald-600">✓ {passed} Pass</span>
+                                <span className="text-red-500">✗ {failed} Fail</span>
+                                <span className="text-gray-500">⊘ {skipped} Skip</span>
+                            </div>
+                        )}
+
+                        {results.length > 0 && (
+                            <div className="space-y-1">
+                                {results.map((r, i) => (
+                                    <div key={i} className={`text-xs p-2 rounded flex justify-between ${
+                                        r.status === 'pass' ? 'bg-emerald-50 dark:bg-emerald-900/20' :
+                                        r.status === 'fail' ? 'bg-red-50 dark:bg-red-900/20' :
+                                        'bg-gray-50 dark:bg-gray-800'
+                                    }`}>
+                                        <span className={r.status === 'fail' ? 'text-red-600' : 'dark:text-gray-300'}>
+                                            {r.status === 'pass' ? '✓' : r.status === 'fail' ? '✗' : '⊘'} {r.name}
+                                            {r.error && <span className="block text-[10px] text-red-500 mt-0.5">{r.error}</span>}
+                                        </span>
+                                        <span className="text-gray-400">{r.duration}ms</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-neutral-700 text-[10px] text-gray-500">
+                            URL'ye <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">#test</code> ekleyerek otomatik çalıştırın
+                        </div>
+                    </div>
+                );
+            };
+
+            // Mount test runner
+            const testContainer = document.createElement('div');
+            testContainer.id = 'test-runner-root';
+            document.body.appendChild(testContainer);
+            ReactDOM.createRoot(testContainer).render(<TestRunner />);
+        })();
+    </script>
 </body>
 </html>
