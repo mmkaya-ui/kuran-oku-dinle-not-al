@@ -96,15 +96,6 @@
         .ios-scroll {
             -webkit-overflow-scrolling: touch;
             overscroll-behavior-y: auto;
-            /* Improve scroll performance by promoting to GPU layer only during scroll */
-            -webkit-transform: translateZ(0);
-            transform: translateZ(0);
-        }
-
-        /* Reduce paint complexity for scrolling containers */
-        .ios-scroll * {
-            -webkit-transform: translateZ(0);
-            transform: translateZ(0);
         }
 
         .rotate-icon {
