@@ -1116,6 +1116,33 @@
                 };
             }, [isPlaying]);
 
+            // iOS Scroll Freeze Fix — restore scroll position on app resume
+            useEffect(() => {
+                let lastScrollY = 0;
+                const mainScroll = document.getElementById('main-scroll');
+
+                const handleVisibility = () => {
+                    if (document.visibilityState === 'hidden') {
+                        // Save scroll position
+                        lastScrollY = mainScroll?.scrollTop || window.scrollY || 0;
+                    } else if (document.visibilityState === 'visible') {
+                        // Restore scroll after a short delay (iOS needs time to settle)
+                        setTimeout(() => {
+                            if (mainScroll && lastScrollY > 0) {
+                                mainScroll.style.webkitOverflowScrolling = 'auto';
+                                mainScroll.scrollTop = lastScrollY;
+                                requestAnimationFrame(() => {
+                                    mainScroll.style.webkitOverflowScrolling = 'touch';
+                                });
+                            }
+                        }, 100);
+                    }
+                };
+
+                document.addEventListener('visibilitychange', handleVisibility);
+                return () => document.removeEventListener('visibilitychange', handleVisibility);
+            }, []);
+
             // Handle playbackRate changes instantly — also re-apply after loadedmetadata
             // because some browsers reset playbackRate to 1 when src changes
             useEffect(() => {
