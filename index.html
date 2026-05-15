@@ -1753,15 +1753,15 @@
 
             useEffect(() => {
                 const noteKey = `quran_note_${ayahData.surahNumber}_${ayahData.numberInSurah}`;
-                const saved = localStorage.getItem(noteKey);
+                const saved = safeStorage.getItem(noteKey);
                 if (saved) setLocalNote(saved);
             }, [ayahData.surahNumber, ayahData.numberInSurah]);
 
             const saveNote = (val) => {
                 setLocalNote(val);
                 const noteKey = `quran_note_${ayahData.surahNumber}_${ayahData.numberInSurah}`;
-                if (val.trim()) localStorage.setItem(noteKey, val);
-                else localStorage.removeItem(noteKey);
+                if (val.trim()) safeStorage.setItem(noteKey, val);
+                else safeStorage.removeItem(noteKey);
             };
 
             useEffect(() => {
@@ -2368,7 +2368,7 @@
 
                         {/* Mobile Surah Select - Sticky at top */}
                         {!loading && !searching && viewMode === 'reader' && (
-                            <div className="md:hidden sticky top-0 left-0 w-full z-10 bg-white dark:bg-black border-b dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4">
+                            <div className="md:hidden sticky top-0 left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4">
                                 <select
                                     onChange={(e) => {
                                         const num = parseInt(e.target.value);
@@ -2376,7 +2376,7 @@
                                         const surah = surahs.find(s => s.number === num);
                                         if (surah) fetchSurah(surah);
                                     }}
-                                    className="flex-1 p-1 rounded border border-gray-200 dark:border-neutral-800 dark:bg-black dark:text-white focus:ring-emerald-500 text-sm"
+                                    className="flex-1 p-1 rounded border border-gray-200 dark:border-neutral-800 bg-white dark:bg-black dark:text-white focus:ring-emerald-500 text-sm appearance-none"
                                     value={activeSurah?.number || 1}
                                 >
                                     {sortedSurahs.map(s => (
@@ -2579,7 +2579,7 @@
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
                         if (key && key.startsWith('quran_note_')) {
-                            const noteData = localStorage.getItem(key);
+                            const noteData = safeStorage.getItem(key);
                             const match = key.match(/quran_note_(\d+)_(\d+)/);
                             if (match) {
                                 const surahNum = parseInt(match[1]);
@@ -2649,7 +2649,7 @@
             }, [surahs]);
 
             const deleteNote = (key) => {
-                localStorage.removeItem(key);
+                safeStorage.removeItem(key);
                 setNotes(prev => prev.filter(n => n.key !== key));
                 showToast('Not silindi.');
             };
@@ -2681,7 +2681,7 @@
                         let count = 0;
                         Object.entries(data).forEach(([k, v]) => {
                             if (k.startsWith('quran_note_')) {
-                                localStorage.setItem(k, v);
+                                safeStorage.setItem(k, v);
                                 count++;
                             }
                         });
