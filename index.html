@@ -1836,20 +1836,17 @@
 
             const handleShare = async () => {
                 const deepLink = `${window.location.origin}${window.location.pathname}#quran/${ayahData.surahNumber}/${ayahData.numberInSurah}`;
-                // Don't include deepLink in text - navigator.share adds url separately causing duplicates
-                const shareText = `"${ayahData.diyanet}"\n\n— ${ayahData.surahName} Suresi, ${ayahData.numberInSurah}. Ayet`;
+                // Link metnin içinde - tıklanabilir
+                const shareText = `"${ayahData.diyanet}"\n\n— ${ayahData.surahName} Suresi, ${ayahData.numberInSurah}. Ayet\n\n${deepLink}`;
                 if (navigator.share) {
                     try {
-                        await navigator.share({
-                            title: `${ayahData.surahName} ${ayahData.numberInSurah}. Ayet`,
-                            text: shareText,
-                            url: deepLink,
-                        });
+                        // Sadece text gönder (title/url yok) - duplicate preview engelleme
+                        await navigator.share({ text: shareText });
                     } catch (err) { }
                 } else {
-                    // Fallback: include link in clipboard text
+                    // Fallback: kopyala
                     try {
-                        await navigator.clipboard.writeText(`${shareText}\n\n${deepLink}`);
+                        await navigator.clipboard.writeText(shareText);
                         showToast("Ayet metni kopyalandı!");
                     } catch {
                         showToast("Kopyalama başarısız oldu.");
@@ -2445,7 +2442,13 @@
             return (
                 <main className={`flex-1 overflow-y-auto bg-slate-100 dark:bg-black p-4 md:p-8 scroll-smooth ${viewMode === 'reader' ? 'pt-4 md:pt-8' : 'pt-4 md:pt-8'}`} id="main-scroll">
                     <div className="max-w-4xl mx-auto pb-32">
-                        {loading && <div className="flex flex-col items-center justify-center h-64 text-emerald-600 animate-pulse"><i className="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>{loadingText}</p></div>}
+                        {/* Minimal loading indicator - just top spinner, no blocking overlay */}
+                        {loading && (
+                            <div className="sticky top-0 z-20 flex items-center justify-center py-2 bg-emerald-50/80 dark:bg-emerald-900/20 backdrop-blur-sm">
+                                <i className="fa-solid fa-circle-notch fa-spin text-emerald-600 text-sm mr-2"></i>
+                                <span className="text-xs text-emerald-600 dark:text-emerald-400">{loadingText}</span>
+                            </div>
+                        )}
 
                         {!loading && fetchError && (
                             <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
