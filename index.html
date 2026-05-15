@@ -1454,6 +1454,13 @@
                     const editionsData = await editionsRes.json();
                     const metaData = await metaRes.json();
 
+                    // DEBUG: Check API response structure
+                    console.log('[DEBUG] Editions data length:', editionsData.data?.length);
+                    console.log('[DEBUG] Edition 0 (arabic) sample:', editionsData.data[0]?.ayahs[0]?.text?.substring(0, 30));
+                    console.log('[DEBUG] Edition 2 (diyanet) sample:', editionsData.data[2]?.ayahs[0]?.text?.substring(0, 30));
+                    console.log('[DEBUG] Edition 3 (yazir) sample:', editionsData.data[3]?.ayahs[0]?.text?.substring(0, 30));
+                    console.log('[DEBUG] Edition 4 (ates) sample:', editionsData.data[4]?.ayahs[0]?.text?.substring(0, 30));
+
                     if (metaData.code === 200) setActiveSurah(prev => ({ ...prev, ...metaData.data }));
 
                     const combinedAyahs = metaData.data.ayahs.map((ayah, index) => ({
