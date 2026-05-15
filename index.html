@@ -2555,8 +2555,125 @@
                                 </div>
                             </div>
                         )}
+
+                        {/* My Notes Mode */}
+                        {!loading && viewMode === 'my_notes' && (
+                            <MyNotesView />
+                        )}
                     </div>
                 </main>
+            );
+        };
+
+        // My Notes View Component
+        const MyNotesView = () => {
+            const { showToast, surahs } = useQuran();
+            const [notes, setNotes] = React.useState([]);
+            const [loadingNotes, setLoadingNotes] = React.useState(true);
+
+            React.useEffect(() => {
+                const loadNotes = () => {
+                    const loadedNotes = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('quran_note_')) {
+                            const noteData = localStorage.getItem(key);
+                            const match = key.match(/quran_note_(\d+)_(\d+)/);
+                            if (match) {
+                                const surahNum = parseInt(match[1]);
+                                const ayahNum = parseInt(match[2]);
+                                const surah = surahs.find(s => s.number === surahNum);
+                                loadedNotes.push({
+                                    key,
+                                    surahNum,
+                                    ayahNum,
+                                    surahName: surah ? getSurahNameTR(surahNum) : `Sure ${surahNum}`,
+                                    note: noteData,
+                                    number: surahs.find(s => s.number === surahNum)?.ayahs?.find(a => a.numberInSurah === ayahNum)?.number || 0
+                                });
+                            }
+                        }
+                    }
+                    // Sort by surah number, then by ayah number
+                    loadedNotes.sort((a, b) => {
+                        if (a.surahNum !== b.surahNum) return a.surahNum - b.surahNum;
+                        return a.ayahNum - b.ayahNum;
+                    });
+                    setNotes(loadedNotes);
+                    setLoadingNotes(false);
+                };
+                loadNotes();
+            }, [surahs]);
+
+            const deleteNote = (key) => {
+                localStorage.removeItem(key);
+                setNotes(prev => prev.filter(n => n.key !== key));
+                showToast('Not silindi.');
+            };
+
+            const exportNotes = () => {
+                if (notes.length === 0) { showToast('Kaydedilmiş not yok.'); return; }
+                const notesObj = {};
+                notes.forEach(n => { notesObj[n.key] = n.note; });
+                const blob = new Blob([JSON.stringify(notesObj, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = `kuran-notlar-${new Date().toISOString().slice(0,10)}.json`; a.click();
+                showToast(`${notes.length} not yedeklendi.`);
+            };
+
+            const importNotes = (e) => {
+                const file = e.target.files?.[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+                        let count = 0;
+                        Object.entries(data).forEach(([k, v]) => {
+                            if (k.startsWith('quran_note_')) {
+                                localStorage.setItem(k, v);
+                                count++;
+                            }
+                        });
+                        showToast(`${count} not yüklendi. Sayfayı yenileyin.`);
+                    } catch { showToast('Geçersiz dosya.'); }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            if (loadingNotes) return <div className="flex flex-col items-center justify-center h-64 text-emerald-600"><i className="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>Notlar yükleniyor...</p></div>;
+
+            return (
+                <div className="fade-in">
+                    <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
+                        <h2 className="text-2xl font-bold flex items-center gap-2 dark:text-slate-100"><i className="fa-solid fa-note-sticky text-emerald-600"></i> Notlarım ({notes.length})</h2>
+                        <div className="flex gap-2 flex-wrap">
+                            <button onClick={exportNotes} className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">
+                                <i className="fa-solid fa-file-export"></i> Notları Yedekle
+                            </button>
+                            <label className="flex items-center gap-1.5 text-xs bg-white dark:bg-black border border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1.5 rounded-lg font-bold shadow-sm cursor-pointer">
+                                <i className="fa-solid fa-file-import"></i> Yedek Yükle
+                                <input type="file" accept=".json" className="hidden" onChange={importNotes} />
+                            </label>
+                        </div>
+                    </div>
+
+                    {notes.length === 0 && <p className="text-gray-500 dark:text-slate-400 italic">Henüz not oluşturmadınız.</p>}
+
+                    <div className="space-y-4">
+                        {notes.map((note) => (
+                            <div key={note.key} className="bg-white dark:bg-black p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded">{note.surahName} {note.ayahNum}</span>
+                                    </div>
+                                    <button onClick={() => deleteNote(note.key)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded"><i className="fa-solid fa-trash text-xs"></i></button>
+                                </div>
+                                <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">{note.note}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             );
         };
 
@@ -2679,6 +2796,12 @@
                                 <button onClick={() => setDarkMode(!darkMode)} aria-label={darkMode ? 'Açık temaya geç' : 'Koyu temaya geç'} aria-pressed={darkMode} className="bg-emerald-600 p-2 rounded-full w-9 h-9 flex items-center justify-center hover:bg-emerald-500 transition border border-emerald-500">
                                     {darkMode ? <i className="fa-solid fa-sun text-xs"></i> : <i className="fa-solid fa-moon text-xs"></i>}
                                 </button>
+                                {/* Font Size Controls moved to header */}
+                                <div className="flex items-center bg-emerald-800 rounded-lg px-2 py-1 gap-1 border border-emerald-600/30">
+                                    <button onClick={() => setFontSize(prev => Math.max(14, prev - 2))} aria-label="Yazı boyutunu küçült" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded text-xs hover:bg-emerald-500 font-bold">-</button>
+                                    <span className="text-xs font-mono w-4 text-center" aria-label={`Yazı boyutu: ${fontSize}`}>{fontSize}</span>
+                                    <button onClick={() => setFontSize(prev => Math.min(32, prev + 2))} aria-label="Yazı boyutunu büyüt" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded text-xs hover:bg-emerald-500 font-bold">+</button>
+                                </div>
                             </div>
                             <div className="mb-2 flex items-center gap-3 pr-20">
                                 <button onClick={goBack} aria-label="Ana sayfaya dön" className="bg-emerald-800 p-2 rounded-lg hover:bg-emerald-600 transition h-9 w-9 flex items-center justify-center"><i className="fa-solid fa-arrow-left text-sm"></i></button>
@@ -2703,10 +2826,10 @@
                                     <i className="fa-solid fa-book-open text-[10px]"></i> Kur'an
                                 </button>
                                 <button
-                                    onClick={() => { if (searchQuery) { handleSearch(searchQuery); } setViewMode('search'); }}
-                                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${viewMode === 'search' ? 'bg-white text-emerald-800 shadow-sm' : 'text-emerald-100 hover:bg-emerald-600'}`}
+                                    onClick={() => setViewMode('my_notes')}
+                                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${viewMode === 'my_notes' ? 'bg-white text-emerald-800 shadow-sm' : 'text-emerald-100 hover:bg-emerald-600'}`}
                                 >
-                                    <i className="fa-solid fa-magnifying-glass text-[10px]"></i> Arama
+                                    <i className="fa-solid fa-note-sticky text-[10px]"></i> Notlarım
                                 </button>
                                 <button
                                     onClick={() => setViewMode('playlists_list')}
@@ -2716,49 +2839,7 @@
                                 </button>
                             </div>
 
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-1">
-                                    <button title="Notları yedek olarak indir" onClick={() => {
-                                        const notes = {};
-                                        for (let i = 0; i < localStorage.length; i++) {
-                                            const key = localStorage.key(i);
-                                            if (key && key.startsWith('quran_note_')) notes[key] = localStorage.getItem(key);
-                                        }
-                                        if (Object.keys(notes).length === 0) { showToast('Kaydedilmiş not yok.'); return; }
-                                        const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
-                                        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                                        a.download = `kuran-notlar-${new Date().toISOString().slice(0,10)}.json`; a.click();
-                                        showToast(`${Object.keys(notes).length} not yedeklendi.`);
-                                    }} className="bg-emerald-800 text-emerald-200 hover:bg-emerald-600 text-[10px] px-2 py-1 rounded border border-emerald-600/30 flex items-center gap-1">
-                                        <i className="fa-solid fa-arrow-up-from-bracket text-[9px]"></i>
-                                        <span>Notları Yedekle</span>
-                                    </button>
-                                    <label title="Daha önce yedeklediğin notları geri yükle" className="bg-emerald-800 text-emerald-200 hover:bg-emerald-600 text-[10px] px-2 py-1 rounded border border-emerald-600/30 flex items-center gap-1 cursor-pointer">
-                                        <i className="fa-solid fa-arrow-down-to-bracket text-[9px]"></i>
-                                        <span>Yedek Yükle</span>
-                                        <input type="file" accept=".json" className="hidden" onChange={(e) => {
-                                            const file = e.target.files?.[0]; if (!file) return;
-                                            const reader = new FileReader();
-                                            reader.onload = (ev) => {
-                                                try {
-                                                    const data = JSON.parse(ev.target.result);
-                                                    let count = 0;
-                                                    Object.entries(data).forEach(([k, v]) => { if (k.startsWith('quran_note_')) { localStorage.setItem(k, v); count++; } });
-                                                    showToast(`${count} not yedeğinden yüklendi. Sayfayı yenileyin.`);
-                                                } catch { showToast('Geçersiz dosya.'); }
-                                            };
-                                            reader.readAsText(file);
-                                            e.target.value = '';
-                                        }} />
-                                    </label>
-                                </div>
-                                <div className="flex items-center bg-emerald-800 rounded-lg px-2 py-1 gap-2 border border-emerald-600/30">
-                                    <i className="fa-solid fa-font text-emerald-200 ml-1 text-[10px]"></i>
-                                    <button onClick={() => setFontSize(prev => Math.max(14, prev - 2))} aria-label="Yazı boyutunu küçült" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded-md text-xs hover:bg-emerald-500 font-bold">-</button>
-                                    <span className="text-xs font-mono w-4 text-center" aria-label={`Yazı boyutu: ${fontSize}`}>{fontSize}</span>
-                                    <button onClick={() => setFontSize(prev => Math.min(32, prev + 2))} aria-label="Yazı boyutunu büyüt" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded-md text-xs hover:bg-emerald-500 font-bold">+</button>
-                                </div>
-                            </div>
+                            {/* Note: Not backup buttons removed - moved to my_notes view */}
                         </div>
                     </header>
 
