@@ -2399,10 +2399,10 @@
 
                         {/* Bookmark Prompt */}
                         {showContinueReading && (
-                            <div className="mb-6 bg-emerald-100 dark:bg-emerald-900/30 p-4 rounded-xl flex justify-between items-center shadow-sm border border-emerald-200 dark:border-emerald-800">
+                            <div className="mb-6 bg-emerald-100 dark:bg-emerald-900/30 p-1.5 rounded-xl flex justify-between items-center shadow-sm border border-emerald-200 dark:border-emerald-800">
                                 <div>
-                                    <h4 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm">Son Okunan</h4>
-                                    <p className="text-xs text-emerald-700 dark:text-emerald-400">{bookmark.surah} Suresi, {bookmark.numberInSurah}. Ayet</p>
+                                    <h4 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm leading-none">Son Okunan</h4>
+                                    <p className="text-xs text-emerald-700 dark:text-emerald-400 leading-none mt-0.5">{bookmark.surah} Suresi, {bookmark.numberInSurah}. Ayet</p>
                                 </div>
                                 <button onClick={() => {
                                     const targetSurahNum = parseInt(bookmark.surahNumber);
@@ -2413,7 +2413,7 @@
                                     closePlayer();
                                     jumpTargetRef.current = { ayahNumber: targetAyahNum, shouldPlay: true };
                                     fetchSurah(s);
-                                }} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shrink-0 ml-4">Devam Et</button>
+                                }} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 shrink-0 ml-2">Devam Et</button>
                             </div>
                         )}
 
