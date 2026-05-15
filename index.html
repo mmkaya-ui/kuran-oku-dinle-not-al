@@ -96,6 +96,15 @@
         .ios-scroll {
             -webkit-overflow-scrolling: touch;
             overscroll-behavior-y: auto;
+            /* Improve scroll performance by promoting to GPU layer only during scroll */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+
+        /* Reduce paint complexity for scrolling containers */
+        .ios-scroll * {
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
         }
 
         .rotate-icon {
@@ -158,7 +167,7 @@
         </template>
         <template id="tpl-week-section">
             <section
-                class="mb-4 bg-white dark:bg-black dark:border dark:border-neutral-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-300 fade-in group will-change-transform">
+                class="mb-4 bg-white dark:bg-black dark:border dark:border-neutral-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-300 fade-in group">
                 <div class="week-header p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700 hover:bg-emerald-50 dark:hover:bg-gray-700 cursor-pointer select-none active:bg-emerald-100 dark:active:bg-gray-600 transition-colors"
                     role="button" aria-expanded="false">
                     <h2 class="font-bold text-emerald-800 dark:text-emerald-400 flex items-center">
@@ -174,7 +183,7 @@
 
         <template id="tpl-card">
             <article
-                class="bg-white dark:bg-black dark:border dark:border-neutral-800 p-4 rounded-lg shadow-sm mb-3 border-l-4 border-emerald-500 ml-1 mr-1 mt-1 transition-colors duration-300 hover:shadow-md will-change-transform">
+                class="bg-white dark:bg-black dark:border dark:border-neutral-800 p-4 rounded-lg shadow-sm mb-3 border-l-4 border-emerald-500 ml-1 mr-1 mt-1 transition-colors duration-300 hover:shadow-md">
                 <div class="flex justify-between items-start mb-3">
                     <div class="pr-2">
                         <div
