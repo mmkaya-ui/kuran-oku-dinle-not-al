@@ -2607,28 +2607,42 @@
                     });
                     setNotes(loadedNotes);
 
-                    // Fetch full ayah details for each note
+                    // BATCH FETCH: Load ayah details in parallel for better performance
+                    const BATCH_SIZE = 5; // Fetch 5 ayahs at a time to avoid rate limits
                     const details = {};
-                    for (const note of loadedNotes) {
-                        try {
-                            const response = await fetch(`${API_BASE}/ayah/${note.number}/editions/${EDITIONS.arabic},${EDITIONS.tr_diyanet},${EDITIONS.transliteration}`);
-                            const data = await response.json();
-                            if (data.code === 200 && data.data) {
-                                const [arabic, turkish, transliteration] = data.data;
-                                details[note.number] = {
-                                    number: note.number,
-                                    numberInSurah: note.ayahNum,
-                                    surahName: note.surahName,
-                                    surahNumber: note.surahNum,
-                                    text: arabic.text,
-                                    diyanet: turkish.text,
-                                    transliteration: transliteration.text,
-                                    audio: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${note.number}.mp3`
-                                };
-                            }
-                        } catch (e) { console.warn('Failed to fetch ayah:', note.number); }
+
+                    for (let i = 0; i < loadedNotes.length; i += BATCH_SIZE) {
+                        const batch = loadedNotes.slice(i, i + BATCH_SIZE);
+                        const batchPromises = batch.map(async (note) => {
+                            try {
+                                const response = await fetch(`${API_BASE}/ayah/${note.number}/editions/${EDITIONS.arabic},${EDITIONS.tr_diyanet},${EDITIONS.transliteration}`);
+                                const data = await response.json();
+                                if (data.code === 200 && data.data) {
+                                    const [arabic, turkish, transliteration] = data.data;
+                                    return {
+                                        number: note.number,
+                                        numberInSurah: note.ayahNum,
+                                        surahName: note.surahName,
+                                        surahNumber: note.surahNum,
+                                        text: arabic.text,
+                                        diyanet: turkish.text,
+                                        transliteration: transliteration.text,
+                                        audio: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${note.number}.mp3`
+                                    };
+                                }
+                            } catch (e) { console.warn('Failed to fetch ayah:', note.number); }
+                            return null;
+                        });
+
+                        const batchResults = await Promise.all(batchPromises);
+                        batchResults.forEach((result) => {
+                            if (result) details[result.number] = result;
+                        });
+
+                        // Update UI progressively as batches load
+                        setAyahDetails({ ...details });
                     }
-                    setAyahDetails(details);
+
                     setLoadingNotes(false);
                 };
                 if (surahs.length > 0) loadNotesWithAyahs();
@@ -2701,9 +2715,9 @@
                         </div>
                     </div>
 
-                    {/* Empty State - Professional UX */}
+                    {/* Empty State */}
                     {notes.length === 0 && (
-                        <div className="text-center py-16 bg-gray-50 dark:bg-black rounded-xl border border-gray-200 dark:border-neutral-800">
+                        <div className="text-center py-16 bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-neutral-800">
                             <i className="fa-solid fa-note-sticky text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
                             <p className="text-gray-500 dark:text-slate-400">Henüz not oluşturmadınız.</p>
                             <p className="text-sm text-gray-400 dark:text-slate-500 mt-2">Ayet kartlarındaki <i className="fa-solid fa-pen-to-square text-xs"></i> butonu ile not ekleyin.</p>
@@ -2867,24 +2881,21 @@
 
                     <header className="bg-emerald-700 dark:bg-emerald-900 text-white px-4 pb-2 shadow-lg z-20 sticky top-0 border-b border-transparent dark:border-emerald-800">
                         <div className="max-w-md mx-auto relative pt-2">
-                            <div className="absolute right-0 top-1.5 flex items-center gap-1.5">
-                                <button onClick={() => setShowHelp(true)} aria-label="Kullanım rehberini aç" className="bg-emerald-600 p-2 rounded-full w-9 h-9 flex items-center justify-center hover:bg-emerald-500 transition border border-emerald-500" title="Kullanım Rehberi">
-                                    <i className="fa-solid fa-circle-question text-xs"></i>
-                                </button>
-                                <button onClick={() => setDarkMode(!darkMode)} aria-label={darkMode ? 'Açık temaya geç' : 'Koyu temaya geç'} aria-pressed={darkMode} className="bg-emerald-600 p-2 rounded-full w-9 h-9 flex items-center justify-center hover:bg-emerald-500 transition border border-emerald-500">
+                            {/* Simplified header - Material Design style */}
+                            <div className="absolute right-0 top-1.5 flex items-center gap-1">
+                                <button onClick={() => setDarkMode(!darkMode)} aria-label={darkMode ? 'Açık temaya geç' : 'Koyu temaya geç'} aria-pressed={darkMode} className="bg-emerald-600 p-1.5 rounded-full w-8 h-8 flex items-center justify-center hover:bg-emerald-500 transition">
                                     {darkMode ? <i className="fa-solid fa-sun text-xs"></i> : <i className="fa-solid fa-moon text-xs"></i>}
                                 </button>
-                                {/* Font Size Controls moved to header */}
-                                <div className="flex items-center bg-emerald-800 rounded-lg px-2 py-1 gap-1 border border-emerald-600/30">
-                                    <button onClick={() => setFontSize(prev => Math.max(14, prev - 2))} aria-label="Yazı boyutunu küçült" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded text-xs hover:bg-emerald-500 font-bold">-</button>
-                                    <span className="text-xs font-mono w-4 text-center" aria-label={`Yazı boyutu: ${fontSize}`}>{fontSize}</span>
-                                    <button onClick={() => setFontSize(prev => Math.min(32, prev + 2))} aria-label="Yazı boyutunu büyüt" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded text-xs hover:bg-emerald-500 font-bold">+</button>
+                                <div className="flex items-center bg-emerald-800 rounded-lg px-1.5 py-1 gap-1">
+                                    <button onClick={() => setFontSize(prev => Math.max(14, prev - 2))} aria-label="Küçült" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded text-xs hover:bg-emerald-500 font-bold">-</button>
+                                    <span className="text-xs font-mono w-4 text-center">{fontSize}</span>
+                                    <button onClick={() => setFontSize(prev => Math.min(32, prev + 2))} aria-label="Büyüt" className="w-6 h-6 flex items-center justify-center bg-emerald-600 rounded text-xs hover:bg-emerald-500 font-bold">+</button>
                                 </div>
                             </div>
-                            <div className="mb-2 flex items-center gap-3 pr-20">
-                                <button onClick={goBack} aria-label="Ana sayfaya dön" className="bg-emerald-800 p-2 rounded-lg hover:bg-emerald-600 transition h-9 w-9 flex items-center justify-center"><i className="fa-solid fa-arrow-left text-sm"></i></button>
-                                <div>
-                                    <h1 className="text-xl font-bold mb-0.5 flex items-center leading-none"><i className="fa-solid fa-book-open mr-2 text-sm"></i> Kuran Rehberi</h1>
+                            <div className="mb-2 flex items-center gap-3 pr-28">
+                                <button onClick={goBack} aria-label="Ana sayfaya dön" className="bg-emerald-800 p-2 rounded-lg hover:bg-emerald-600 transition h-8 w-8 flex items-center justify-center shrink-0"><i className="fa-solid fa-arrow-left text-sm"></i></button>
+                                <div className="min-w-0">
+                                    <h1 className="text-lg font-bold mb-0.5 flex items-center leading-none truncate"><i className="fa-solid fa-book-open mr-2 text-sm"></i> Kuran Rehberi</h1>
                                     <p className="text-emerald-100 text-[11px] opacity-90 leading-none">Oku, Dinle, Araştır</p>
                                 </div>
                             </div>
