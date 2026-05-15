@@ -2565,14 +2565,16 @@
             );
         };
 
-        // My Notes View Component
+        // My Notes View Component - Professional UX with AyahCard
         const MyNotesView = () => {
-            const { showToast, surahs } = useQuran();
+            const { showToast, surahs, fetchSurah, setViewMode } = useQuran();
             const [notes, setNotes] = React.useState([]);
             const [loadingNotes, setLoadingNotes] = React.useState(true);
+            const [ayahDetails, setAyahDetails] = React.useState({});
 
+            // Load notes and fetch ayah details
             React.useEffect(() => {
-                const loadNotes = () => {
+                const loadNotesWithAyahs = async () => {
                     const loadedNotes = [];
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
@@ -2583,14 +2585,18 @@
                                 const surahNum = parseInt(match[1]);
                                 const ayahNum = parseInt(match[2]);
                                 const surah = surahs.find(s => s.number === surahNum);
-                                loadedNotes.push({
-                                    key,
-                                    surahNum,
-                                    ayahNum,
-                                    surahName: surah ? getSurahNameTR(surahNum) : `Sure ${surahNum}`,
-                                    note: noteData,
-                                    number: surahs.find(s => s.number === surahNum)?.ayahs?.find(a => a.numberInSurah === ayahNum)?.number || 0
-                                });
+                                const globalAyah = surahs.find(s => s.number === surahNum)?.ayahs?.find(a => a.numberInSurah === ayahNum);
+                                if (globalAyah) {
+                                    loadedNotes.push({
+                                        key,
+                                        surahNum,
+                                        ayahNum,
+                                        surahName: surah ? getSurahNameTR(surahNum) : `Sure ${surahNum}`,
+                                        note: noteData,
+                                        number: globalAyah.number,
+                                        globalAyah
+                                    });
+                                }
                             }
                         }
                     }
@@ -2600,15 +2606,46 @@
                         return a.ayahNum - b.ayahNum;
                     });
                     setNotes(loadedNotes);
+
+                    // Fetch full ayah details for each note
+                    const details = {};
+                    for (const note of loadedNotes) {
+                        try {
+                            const response = await fetch(`${API_BASE}/ayah/${note.number}/editions/${EDITIONS.arabic},${EDITIONS.tr_diyanet},${EDITIONS.transliteration}`);
+                            const data = await response.json();
+                            if (data.code === 200 && data.data) {
+                                const [arabic, turkish, transliteration] = data.data;
+                                details[note.number] = {
+                                    number: note.number,
+                                    numberInSurah: note.ayahNum,
+                                    surahName: note.surahName,
+                                    surahNumber: note.surahNum,
+                                    text: arabic.text,
+                                    diyanet: turkish.text,
+                                    transliteration: transliteration.text,
+                                    audio: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${note.number}.mp3`
+                                };
+                            }
+                        } catch (e) { console.warn('Failed to fetch ayah:', note.number); }
+                    }
+                    setAyahDetails(details);
                     setLoadingNotes(false);
                 };
-                loadNotes();
+                if (surahs.length > 0) loadNotesWithAyahs();
             }, [surahs]);
 
             const deleteNote = (key) => {
                 localStorage.removeItem(key);
                 setNotes(prev => prev.filter(n => n.key !== key));
                 showToast('Not silindi.');
+            };
+
+            const navigateToAyah = (note) => {
+                const surah = surahs.find(s => s.number === note.surahNum);
+                if (surah) {
+                    setViewMode('reader');
+                    fetchSurah(surah);
+                }
             };
 
             const exportNotes = () => {
@@ -2641,37 +2678,78 @@
                 e.target.value = '';
             };
 
-            if (loadingNotes) return <div className="flex flex-col items-center justify-center h-64 text-emerald-600"><i className="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>Notlar yükleniyor...</p></div>;
+            if (loadingNotes) return <div className="flex flex-col items-center justify-center h-64 text-emerald-600"><i className="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>Notlar ve ayetler yükleniyor...</p></div>;
 
             return (
                 <div className="fade-in">
+                    {/* Header Section - Professional UI Pattern */}
                     <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
-                        <h2 className="text-2xl font-bold flex items-center gap-2 dark:text-slate-100"><i className="fa-solid fa-note-sticky text-emerald-600"></i> Notlarım ({notes.length})</h2>
+                        <div>
+                            <h2 className="text-2xl font-bold flex items-center gap-2 dark:text-slate-100">
+                                <i className="fa-solid fa-note-sticky text-emerald-600"></i> Notlarım
+                            </h2>
+                            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{notes.length} not kaydedildi</p>
+                        </div>
                         <div className="flex gap-2 flex-wrap">
-                            <button onClick={exportNotes} className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">
-                                <i className="fa-solid fa-file-export"></i> Notları Yedekle
+                            <button onClick={exportNotes} className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-colors">
+                                <i className="fa-solid fa-file-export"></i> Yedekle
                             </button>
-                            <label className="flex items-center gap-1.5 text-xs bg-white dark:bg-black border border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1.5 rounded-lg font-bold shadow-sm cursor-pointer">
-                                <i className="fa-solid fa-file-import"></i> Yedek Yükle
+                            <label className="flex items-center gap-1.5 text-xs bg-white dark:bg-black border border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1.5 rounded-lg font-bold shadow-sm cursor-pointer transition-colors">
+                                <i className="fa-solid fa-file-import"></i> Yükle
                                 <input type="file" accept=".json" className="hidden" onChange={importNotes} />
                             </label>
                         </div>
                     </div>
 
-                    {notes.length === 0 && <p className="text-gray-500 dark:text-slate-400 italic">Henüz not oluşturmadınız.</p>}
+                    {/* Empty State - Professional UX */}
+                    {notes.length === 0 && (
+                        <div className="text-center py-16 bg-gray-50 dark:bg-black rounded-xl border border-gray-200 dark:border-neutral-800">
+                            <i className="fa-solid fa-note-sticky text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                            <p className="text-gray-500 dark:text-slate-400">Henüz not oluşturmadınız.</p>
+                            <p className="text-sm text-gray-400 dark:text-slate-500 mt-2">Ayet kartlarındaki <i className="fa-solid fa-pen-to-square text-xs"></i> butonu ile not ekleyin.</p>
+                        </div>
+                    )}
 
-                    <div className="space-y-4">
-                        {notes.map((note) => (
-                            <div key={note.key} className="bg-white dark:bg-black p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded">{note.surahName} {note.ayahNum}</span>
+                    {/* Notes List with Ayah Cards */}
+                    <div className="space-y-6">
+                        {notes.map((note) => {
+                            const ayahData = ayahDetails[note.number];
+                            if (!ayahData) return null;
+
+                            return (
+                                <div key={note.key} className="relative">
+                                    {/* Note Badge */}
+                                    <div className="absolute -top-3 left-4 z-10 flex items-center gap-2">
+                                        <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-1 rounded-full text-xs font-bold border border-amber-200 dark:border-amber-800">
+                                            <i className="fa-solid fa-pen-to-square mr-1"></i>Not
+                                        </span>
+                                        <span className="text-xs text-gray-400 dark:text-slate-500">
+                                            {note.surahName} {note.ayahNum}
+                                        </span>
                                     </div>
-                                    <button onClick={() => deleteNote(note.key)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded"><i className="fa-solid fa-trash text-xs"></i></button>
+
+                                    {/* Ayah Card with Note */}
+                                    <div className="pt-4">
+                                        <AyahCard ayahData={ayahData} />
+                                    </div>
+
+                                    {/* Note Content Below Card */}
+                                    <div className="mt-2 mx-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800/50">
+                                        <div className="flex justify-between items-start">
+                                            <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap flex-1">{note.note}</p>
+                                            <div className="flex gap-1 ml-2 shrink-0">
+                                                <button onClick={() => navigateToAyah(note)} className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 p-1.5 rounded" title="Ayete git">
+                                                    <i className="fa-solid fa-arrow-right-to-bracket text-xs"></i>
+                                                </button>
+                                                <button onClick={() => deleteNote(note.key)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded" title="Notu sil">
+                                                    <i className="fa-solid fa-trash text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">{note.note}</p>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             );
