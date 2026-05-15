@@ -2869,7 +2869,49 @@
                                         </div>
                                         
                                         {/* Note Section - Uniform with Reader View */}
-                                        <div className="mt-6 mx-4 mb-4 p-4 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                        <div className="mt-5 mx-4 pt-5 border-t border-slate-100 dark:border-neutral-800">
+                                            <div className="p-4 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <h4 className="text-xs font-bold text-amber-700 dark:text-amber-500 flex items-center gap-2">
+                                                        <i className="fa-solid fa-pen-nib"></i> Notunuz
+                                                    </h4>
+                                                    <div className="flex gap-1">
+                                                        <button 
+                                                            onClick={() => navigateToAyah(note)} 
+                                                            className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 p-1.5 rounded transition-colors" 
+                                                            title="Ayete git"
+                                                        >
+                                                            <i className="fa-solid fa-arrow-right-to-bracket text-xs"></i>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => deleteNote(note.key)} 
+                                                            className="text-red-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 p-1.5 rounded transition-colors" 
+                                                            title="Notu sil"
+                                                        >
+                                                            <i className="fa-solid fa-trash text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
+                                                    {note.noteText}
+                                                </p>
+                                                <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-3 italic">
+                                                    Bu notu güncellemek için sureye gidip tekrar kaydedebilirsiniz.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div key={note.key} className="bg-white dark:bg-black rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden">
+                                    {/* Ayah Card */}
+                                    <AyahCard ayahData={ayahData} />
+                                    
+                                    {/* Note Section - Uniform with Reader View */}
+                                    <div className="mt-5 mx-4 pt-5 border-t border-slate-100 dark:border-neutral-800">
+                                        <div className="p-4 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
                                             <div className="flex justify-between items-center mb-3">
                                                 <h4 className="text-xs font-bold text-amber-700 dark:text-amber-500 flex items-center gap-2">
                                                     <i className="fa-solid fa-pen-nib"></i> Notunuz
@@ -2894,45 +2936,7 @@
                                             <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
                                                 {note.noteText}
                                             </p>
-                                            <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-3 italic">
-                                                Bu notu güncellemek için sureye gidip tekrar kaydedebilirsiniz.
-                                            </p>
                                         </div>
-                                    </div>
-                                );
-                            }
-
-                            return (
-                                <div key={note.key} className="bg-white dark:bg-black rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden">
-                                    {/* Ayah Card */}
-                                    <AyahCard ayahData={ayahData} />
-                                    
-                                    {/* Note Section - Uniform with Reader View */}
-                                    <div className="mt-6 mx-4 mb-4 p-4 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
-                                        <div className="flex justify-between items-center mb-3">
-                                            <h4 className="text-xs font-bold text-amber-700 dark:text-amber-500 flex items-center gap-2">
-                                                <i className="fa-solid fa-pen-nib"></i> Notunuz
-                                            </h4>
-                                            <div className="flex gap-1">
-                                                <button 
-                                                    onClick={() => navigateToAyah(note)} 
-                                                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 p-1.5 rounded transition-colors" 
-                                                    title="Ayete git"
-                                                >
-                                                    <i className="fa-solid fa-arrow-right-to-bracket text-xs"></i>
-                                                </button>
-                                                <button 
-                                                    onClick={() => deleteNote(note.key)} 
-                                                    className="text-red-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 p-1.5 rounded transition-colors" 
-                                                    title="Notu sil"
-                                                >
-                                                    <i className="fa-solid fa-trash text-xs"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
-                                            {note.noteText}
-                                        </p>
                                     </div>
                                 </div>
                             );
