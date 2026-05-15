@@ -2246,6 +2246,40 @@
 
             const lastScrolledAyah = useRef(null);
 
+            // Smart Scroll Detection - Hide/Show Mobile Surah Select on scroll
+            const [showMobileSelect, setShowMobileSelect] = useState(true);
+            const lastScrollY = useRef(0);
+            const ticking = useRef(false);
+
+            useEffect(() => {
+                const mainScroll = document.getElementById('main-scroll');
+                if (!mainScroll) return;
+
+                const handleScroll = () => {
+                    if (!ticking.current) {
+                        requestAnimationFrame(() => {
+                            const currentScrollY = mainScroll.scrollTop;
+                            const scrollDelta = currentScrollY - lastScrollY.current;
+
+                            // Show when scrolling up, hide when scrolling down
+                            // Only trigger after scrolling 10px to avoid micro-jitters
+                            if (scrollDelta < -10) {
+                                setShowMobileSelect(true);
+                            } else if (scrollDelta > 10) {
+                                setShowMobileSelect(false);
+                            }
+
+                            lastScrollY.current = currentScrollY;
+                            ticking.current = false;
+                        });
+                        ticking.current = true;
+                    }
+                };
+
+                mainScroll.addEventListener('scroll', handleScroll, { passive: true });
+                return () => mainScroll.removeEventListener('scroll', handleScroll);
+            }, []);
+
             // Sure değişince scroll hafızasını sıfırla
             useEffect(() => { lastScrolledAyah.current = null; }, [activeSurah]);
 
@@ -2380,9 +2414,9 @@
                             </div>
                         )}
 
-                        {/* Mobile Surah Select - Sticky at top */}
+                        {/* Mobile Surah Select - Smart hide/show on scroll */}
                         {!loading && !searching && viewMode === 'reader' && (
-                            <div className="md:hidden sticky top-0 left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4">
+                            <div className={`md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4 transition-transform duration-300 ease-out ${showMobileSelect ? 'translate-y-0 top-0' : '-translate-y-full -top-20'}`}>
                                 <div className="flex-1 relative">
                                     <select
                                         onChange={(e) => {
