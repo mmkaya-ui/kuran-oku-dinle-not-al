@@ -1790,36 +1790,42 @@
                 const noteKey = `quran_note_${ayahData.surahNumber}_${ayahData.numberInSurah}`;
                 const saved = localStorage.getItem(noteKey);
                 if (saved) {
-                    setLocalNote(saved);
-                    console.log('[DEBUG AyahCard] Loaded note for', noteKey);
+                    try {
+                        const parsed = JSON.parse(saved);
+                        setLocalNote(parsed.text || saved); // Fallback to plain text for old notes
+                    } catch {
+                        setLocalNote(saved); // Plain text fallback
+                    }
                 }
             }, [ayahData.surahNumber, ayahData.numberInSurah]);
 
             const saveNote = (val) => {
                 setLocalNote(val);
                 const noteKey = `quran_note_${ayahData.surahNumber}_${ayahData.numberInSurah}`;
-                console.log('[DEBUG] Saving note:', noteKey, 'length:', val.length);
                 
                 if (val.trim()) {
-                    // ALWAYS use direct localStorage for notes - safeStorage may fail silently
+                    // Store full ayah data + note text to avoid API calls in MyNotesView
+                    const noteData = {
+                        text: val,
+                        surahNumber: ayahData.surahNumber,
+                        numberInSurah: ayahData.numberInSurah,
+                        surahName: ayahData.surahName,
+                        number: ayahData.number,
+                        arabicText: ayahData.text,
+                        diyanet: ayahData.diyanet,
+                        transliteration: ayahData.transliteration,
+                        audio: ayahData.audio,
+                        savedAt: Date.now()
+                    };
+                    
                     try {
-                        localStorage.setItem(noteKey, val);
-                        console.log('[DEBUG] Note saved successfully to localStorage');
-                        
-                        // Verify it was saved
-                        const verify = localStorage.getItem(noteKey);
-                        if (verify === val) {
-                            console.log('[DEBUG] Verified: Note is in localStorage');
-                        } else {
-                            console.error('[DEBUG] Verification failed! Saved:', val.length, 'Retrieved:', verify ? verify.length : 'null');
-                        }
+                        localStorage.setItem(noteKey, JSON.stringify(noteData));
                     } catch (e) {
-                        console.error('[DEBUG] localStorage save FAILED:', e.message);
+                        console.error('Note save failed:', e.message);
                         alert('Not kaydedilemedi: ' + e.message);
                     }
                 } else {
                     localStorage.removeItem(noteKey);
-                    console.log('[DEBUG] Note removed (empty value)');
                 }
             };
 
@@ -2667,102 +2673,88 @@
             );
         };
 
-        // My Notes View Component - Professional UX with AyahCard
+        // My Notes View Component - Fast loading with stored ayah data
         const MyNotesView = () => {
             const { showToast, surahs, fetchSurah, setViewMode, viewMode } = useQuran();
             const [notes, setNotes] = React.useState([]);
-            const [loadingNotes, setLoadingNotes] = React.useState(true);
             const [ayahDetails, setAyahDetails] = React.useState({});
-            const [reloadTrigger, setReloadTrigger] = React.useState(0);
 
-            // Load notes and fetch ayah details
+            // Load notes with stored ayah data - NO API calls needed!
             React.useEffect(() => {
-                console.log('[DEBUG MyNotesView] RELOADING - viewMode:', viewMode, 'localStorage:', localStorage.length, 'surahs:', surahs.length);
-                setLoadingNotes(true);
-                
-                const loadNotesWithAyahs = async () => {
+                const loadNotes = () => {
                     const loadedNotes = [];
-                    let noteCount = 0;
+                    const details = {};
                     
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
                         
                         if (key && key.startsWith('quran_note_')) {
-                            noteCount++;
-                            const noteData = localStorage.getItem(key);
+                            const noteDataRaw = localStorage.getItem(key);
                             const match = key.match(/quran_note_(\d+)_(\d+)/);
-                            if (match) {
+                            
+                            if (match && noteDataRaw) {
                                 const surahNum = parseInt(match[1]);
                                 const ayahNum = parseInt(match[2]);
                                 
-                                // Calculate global ayah number
-                                let globalNumber = 0;
-                                const surah = surahs.find(s => s.number === surahNum);
-                                if (surah && surah.ayahs) {
-                                    const ayah = surah.ayahs.find(a => a.numberInSurah === ayahNum);
-                                    if (ayah) globalNumber = ayah.number;
+                                try {
+                                    const noteData = JSON.parse(noteDataRaw);
+                                    
+                                    // New format: has full ayah data stored
+                                    if (noteData.arabicText) {
+                                        loadedNotes.push({
+                                            key,
+                                            surahNum,
+                                            ayahNum,
+                                            surahName: noteData.surahName || getSurahNameTR(surahNum),
+                                            noteText: noteData.text
+                                        });
+                                        
+                                        // Use stored ayah data directly
+                                        details[key] = {
+                                            number: noteData.number,
+                                            numberInSurah: noteData.numberInSurah,
+                                            surahName: noteData.surahName,
+                                            surahNumber: noteData.surahNumber,
+                                            text: noteData.arabicText,
+                                            diyanet: noteData.diyanet,
+                                            transliteration: noteData.transliteration,
+                                            audio: noteData.audio
+                                        };
+                                    } else {
+                                        // Old format: just text - migrate on view
+                                        loadedNotes.push({
+                                            key,
+                                            surahNum,
+                                            ayahNum,
+                                            surahName: getSurahNameTR(surahNum),
+                                            noteText: noteData.text || noteDataRaw
+                                        });
+                                    }
+                                } catch {
+                                    // Plain text fallback
+                                    loadedNotes.push({
+                                        key,
+                                        surahNum,
+                                        ayahNum,
+                                        surahName: getSurahNameTR(surahNum),
+                                        noteText: noteDataRaw
+                                    });
                                 }
-                                
-                                // If no surah data, estimate (rough approximation)
-                                if (!globalNumber && surahNum > 0 && ayahNum > 0) {
-                                    // This is a fallback - API call will use surahNum/ayahNum directly
-                                    globalNumber = surahNum * 1000 + ayahNum; // Temporary
-                                }
-                                
-                                loadedNotes.push({
-                                    key,
-                                    surahNum,
-                                    ayahNum,
-                                    surahName: surah ? getSurahNameTR(surahNum) : `Sure ${surahNum}`,
-                                    note: noteData,
-                                    number: globalNumber,
-                                    hasSurahData: !!surah
-                                });
                             }
                         }
                     }
                     
-                    console.log('[DEBUG MyNotesView] Total keys:', noteCount, 'Added:', loadedNotes.length, 'surahs loaded:', surahs.length);
                     loadedNotes.sort((a, b) => {
                         if (a.surahNum !== b.surahNum) return a.surahNum - b.surahNum;
                         return a.ayahNum - b.ayahNum;
                     });
+                    
                     setNotes(loadedNotes);
-
-                    // Fetch ayah details using surah:ayah format
-                    const details = {};
-                    for (const note of loadedNotes) {
-                        try {
-                            // Use surah:ayah format for API call
-                            const apiUrl = `${API_BASE}/ayah/${note.surahNum}:${note.ayahNum}/editions/${EDITIONS.arabic},${EDITIONS.tr_diyanet},${EDITIONS.transliteration}`;
-                            console.log('[DEBUG] Fetching ayah:', apiUrl);
-                            const response = await fetch(apiUrl);
-                            const data = await response.json();
-                            if (data.code === 200 && data.data) {
-                                const [arabic, turkish, transliteration] = data.data;
-                                details[note.key] = {
-                                    number: arabic.number, // Use actual number from API
-                                    numberInSurah: note.ayahNum,
-                                    surahName: note.surahName,
-                                    surahNumber: note.surahNum,
-                                    text: arabic.text,
-                                    diyanet: turkish.text,
-                                    transliteration: transliteration.text,
-                                    audio: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${arabic.number}.mp3`
-                                };
-                                setAyahDetails({ ...details });
-                                console.log('[DEBUG] Loaded ayah details for', note.key);
-                            }
-                        } catch (e) { 
-                            console.warn('[DEBUG] Failed to fetch ayah:', note.surahNum, ':', note.ayahNum, e.message);
-                        }
-                    }
-
-                    setLoadingNotes(false);
+                    setAyahDetails(details);
                 };
                 
-                loadNotesWithAyahs();
-            }, [viewMode, reloadTrigger]); // Reload when viewMode changes or manually triggered
+                loadNotes();
+            }, [viewMode]);
 
             const deleteNote = (key) => {
                 localStorage.removeItem(key);
@@ -2781,7 +2773,7 @@
             const exportNotes = () => {
                 if (notes.length === 0) { showToast('Kaydedilmiş not yok.'); return; }
                 const notesObj = {};
-                notes.forEach(n => { notesObj[n.key] = n.note; });
+                notes.forEach(n => { notesObj[n.key] = n.noteText; });
                 const blob = new Blob([JSON.stringify(notesObj, null, 2)], { type: 'application/json' });
                 const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
                 a.download = `kuran-notlar-${new Date().toISOString().slice(0,10)}.json`; a.click();
@@ -2808,7 +2800,6 @@
                 e.target.value = '';
             };
 
-            if (loadingNotes) return <div className="flex flex-col items-center justify-center h-64 text-emerald-600"><i className="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>Notlar ve ayetler yükleniyor...</p></div>;
 
             return (
                 <div className="fade-in">
@@ -2845,7 +2836,7 @@
                         {notes.map((note) => {
                             const ayahData = ayahDetails[note.key];
                             if (!ayahData) {
-                                // Show note without ayah card while loading
+                                // Old note without stored ayah data - show note only
                                 return (
                                     <div key={note.key} className="bg-white dark:bg-black p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
                                         <div className="flex justify-between items-start mb-2">
@@ -2856,8 +2847,8 @@
                                                 <i className="fa-solid fa-trash text-xs"></i>
                                             </button>
                                         </div>
-                                        <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">{note.note}</p>
-                                        <p className="text-xs text-gray-400 mt-2">Ayet detayları yükleniyor...</p>
+                                        <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">{note.noteText}</p>
+                                        <p className="text-xs text-amber-600 mt-2"><i className="fa-solid fa-info-circle mr-1"></i>Eski format not - sureye gidip tekrar kaydetmekle güncellenebilir</p>
                                     </div>
                                 );
                             }
