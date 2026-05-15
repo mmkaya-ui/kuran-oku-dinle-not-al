@@ -2986,7 +2986,18 @@
                             <div className="mb-2 flex items-center gap-3 pr-28">
                                 <button onClick={goBack} aria-label="Ana sayfaya dön" className="bg-emerald-800 p-2 rounded-lg hover:bg-emerald-600 transition h-8 w-8 flex items-center justify-center shrink-0"><i className="fa-solid fa-arrow-left text-sm"></i></button>
                                 <div className="min-w-0">
-                                    <h1 className="text-lg font-bold mb-0.5 flex items-center leading-none truncate"><i className="fa-solid fa-book-open mr-2 text-sm"></i> Kuran Rehberi</h1>
+                                    <h1 className="text-lg font-bold mb-0.5 flex items-center leading-none truncate">
+                                        <i className="fa-solid fa-book-open mr-2 text-sm"></i> 
+                                        Kuran Rehberi
+                                        <button 
+                                            onClick={() => setShowHelp(true)} 
+                                            aria-label="Kullanım rehberi" 
+                                            className="ml-2 text-emerald-200 hover:text-white transition-colors"
+                                            title="Yardım"
+                                        >
+                                            <i className="fa-solid fa-circle-question text-xs"></i>
+                                        </button>
+                                    </h1>
                                     <p className="text-emerald-100 text-[11px] opacity-90 leading-none">Oku, Dinle, Araştır</p>
                                 </div>
                             </div>
