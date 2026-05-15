@@ -983,6 +983,8 @@
             // ═══════════════════════════════════════════════════
             const [activeAyah, setActiveAyah] = useState(null);
             const [isPlaying, setIsPlaying] = useState(false);
+            const isPlayingRef = useRef(false); // Synchronous source of truth for intent
+            const lastClickTimeRef = useRef(0); // Debounce
             const audioRef = useRef(new Audio());
             const [playbackRate, setPlaybackRate] = useState(() => { const s = parseFloat(localStorage.getItem('quran_playbackRate')); return (s >= 0.5 && s <= 2) ? s : 1; });
             const [repeatMode, setRepeatMode] = useState(() => { const s = localStorage.getItem('quran_repeatMode'); return ['none','one','all'].includes(s) ? s : 'none'; });
@@ -1109,12 +1111,19 @@
                 audio.setAttribute('playsinline', 'true');
                 audio.playbackRate = playbackRate; // Apply initial or updated rate
 
-                const onPlay = () => setIsPlaying(true);
-                const onPause = () => setIsPlaying(false);
+                const onPlay = () => {
+                    setIsPlaying(true);
+                    isPlayingRef.current = true;
+                };
+                const onPause = () => {
+                    setIsPlaying(false);
+                    isPlayingRef.current = false;
+                };
                 const onEnded = () => {
                     if (isEndedProcessing.current) return;
                     isEndedProcessing.current = true;
                     setIsPlaying(false);
+                    isPlayingRef.current = false;
                     
                     // Async işlemler bitince unlock (race condition koruması)
                     const handleNext = async () => {
@@ -1138,18 +1147,20 @@
                 const MAX_RETRIES = 3;
                 const onError = (e) => {
                     const error = e.target.error;
-                    if (error && (error.code === error.MEDIA_ERR_NETWORK || error.code === error.MEDIA_ERR_SRC_NOT_SUPPORTED)) {
-                        if (retryCount < MAX_RETRIES && audioRef.current?.__activeAyah) {
+                    if (!error || error.code === 1) return; // Ignore AbortError (user paused)
+
+                    if (error.code === error.MEDIA_ERR_NETWORK || error.code === error.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+                        if (retryCount < MAX_RETRIES && audioRef.current?.__activeAyah && isPlayingRef.current) {
                             retryCount++;
                             setTimeout(() => {
-                                if (audioRef.current?.__activeAyah) {
-                                    // Use audio.paused to check if we should still be playing
-                                    playAyahRef.current?.(audioRef.current.__activeAyah, { forcePlay: !audioRef.current.paused });
+                                if (audioRef.current?.__activeAyah && isPlayingRef.current) {
+                                    playAyahRef.current?.(audioRef.current.__activeAyah, { forcePlay: true });
                                 }
-                            }, 1000 * retryCount); // Exponential backoff
-                        } else {
+                            }, 1000 * retryCount);
+                        } else if (isPlayingRef.current) {
                             showToast('Ses dosyası yüklenemedi. İnternet bağlantınızı kontrol edin.');
                             setIsPlaying(false);
+                            isPlayingRef.current = false;
                         }
                     }
                 };
@@ -1410,16 +1421,23 @@
 
             // Audio Controls
             const playAyah = (ayah, options = {}) => {
+                const now = Date.now();
+                if (now - lastClickTimeRef.current < 200) return; // Debounce rapid clicks
+                lastClickTimeRef.current = now;
+
                 const audio = audioRef.current;
                 const currentAyahId = audio.__activeAyah?.number;
                 const isSameAyah = currentAyahId && Number(currentAyahId) === Number(ayah.number);
 
                 if (isSameAyah && !options.forcePlay) {
                     if (audio.paused) {
+                        isPlayingRef.current = true;
                         audio.play().catch(e => {
                             if (e.name !== 'AbortError') console.error("Play error:", e);
+                            else isPlayingRef.current = false;
                         });
                     } else {
+                        isPlayingRef.current = false;
                         audio.pause();
                     }
                     return;
@@ -1430,20 +1448,26 @@
                 }
 
                 const targetSrc = ayah.audio || "";
-                // Only reset src if it's actually different to prevent "restart from beginning" on same ayah
-                if (audio.src !== targetSrc) {
+                // Use getAttribute to get literal src for reliable comparison
+                const currentSrc = audio.getAttribute('src');
+                if (currentSrc !== targetSrc) {
+                    audio.pause();
                     audio.src = targetSrc;
+                    audio.load(); // Explicitly trigger load for mobile stability
                 }
                 
                 audio.__activeAyah = ayah;
                 audio.playbackRate = playbackRate;
                 
                 if (targetSrc) {
+                    isPlayingRef.current = true;
                     audio.play().catch(e => {
                         if (e.name !== 'AbortError') console.error("Play error:", e);
+                        else isPlayingRef.current = false;
                     });
                 } else {
                     setIsPlaying(false);
+                    isPlayingRef.current = false;
                 }
             };
             playAyahRef.current = playAyah;
