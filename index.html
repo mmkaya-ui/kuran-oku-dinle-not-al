@@ -2367,10 +2367,10 @@
             if (!activeAyah) return null;
 
             return (
-                <div role="region" aria-label="Ses çalar" className="absolute bottom-2 left-2 right-2 md:left-1/2 md:right-auto transform md:-translate-x-1/2 md:w-[600px] bg-white dark:bg-black border border-emerald-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-2 md:p-3 z-50 flex flex-col gap-1.5 md:gap-2 transition-transform duration-300 pb-[calc(env(safe-area-inset-bottom)+8px)] md:pb-[calc(env(safe-area-inset-bottom)+4px)]">
+                <div role="region" aria-label="Ses çalar" className="absolute bottom-2 left-2 right-2 md:left-1/2 md:right-auto transform md:-translate-x-1/2 md:w-[600px] bg-white dark:bg-black border border-emerald-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-2 md:pt-1.5 md:pb-2 md:px-3 z-50 flex flex-col gap-1 md:gap-1.5 transition-transform duration-300 pb-[calc(env(safe-area-inset-bottom)+8px)] md:pb-[calc(env(safe-area-inset-bottom)+4px)]">
                     
                     {/* Row 1: Title & Close Button (Unified for both Mobile & Desktop) */}
-                    <div className="flex items-center justify-between px-2 pt-1">
+                    <div className="flex items-center justify-between px-2 pt-0.5 md:pt-0">
                         <button onClick={scrollToActiveAyah} className="flex-1 min-w-0 pr-2 text-left group flex items-center gap-2" title="Ayete git" aria-label={`${activeAyah.surahName} ${activeAyah.numberInSurah}. ayete git`}>
                             <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate group-hover:text-emerald-600 transition-colors">
                                 {activeAyah.surahName} {activeAyah.numberInSurah}. Ayet 
@@ -2427,13 +2427,12 @@
                                 <button onClick={playNext} aria-label="Sonraki ayet" className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-slate-300 hover:text-emerald-600 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center transition-colors active:scale-95"><i className="fa-solid fa-forward-step text-xs"></i></button>
                             </div>
 
-                            {/* Right: Repeat Mode & Desktop Close Button */}
+                            {/* Right: Repeat Mode */}
                             <div className="flex-1 flex justify-end items-center gap-2">
                                 <button onClick={() => setRepeatMode(prev => prev === 'none' ? 'one' : prev === 'one' ? 'all' : 'none')} className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors relative ${repeatMode !== 'none' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-emerald-600 hover:bg-gray-200 dark:hover:bg-gray-700'}`} title={repeatMode === 'none' ? "Tekrar Kapalı" : repeatMode === 'one' ? "Tek Ayeti Tekrarla" : "Tüm Listeyi Tekrarla"} aria-label={repeatMode === 'none' ? 'Tekrar kapalı, tekrar modunu değiştir' : repeatMode === 'one' ? 'Tek ayet tekrar modu, değiştir' : 'Tüm liste tekrar modu, değiştir'} aria-pressed={repeatMode !== 'none'}>
                                     <i className="fa-solid fa-repeat text-xs"></i>
                                     {repeatMode === 'one' && <span className="absolute text-[8px] font-bold bottom-1 right-1.5 bg-white dark:bg-black rounded-full w-3 h-3 flex items-center justify-center leading-none border border-emerald-100 dark:border-neutral-800">1</span>}
                                 </button>
-                                <button onClick={closePlayer} aria-label="Çaları kapat" className="hidden md:flex w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 items-center justify-center transition-colors"><i className="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>
                     </div>
