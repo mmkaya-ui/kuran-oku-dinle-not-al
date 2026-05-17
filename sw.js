@@ -1,6 +1,6 @@
-const CACHE_NAME = 'quran-v22';
-const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v22';
-const AUDIO_CACHE_NAME = 'quran-audio-v22';
+const CACHE_NAME = 'quran-v23';
+const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v23';
+const AUDIO_CACHE_NAME = 'quran-audio-v23';
 
 const MAX_AUDIO_ENTRIES = 500;   // ~40MB, more reasonable
 const MAX_API_ENTRIES   = 100;   // API responses, LRU eviction
