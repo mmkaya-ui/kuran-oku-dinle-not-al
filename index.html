@@ -2367,7 +2367,21 @@
             if (!activeAyah) return null;
 
             return (
-                <div role="region" aria-label="Ses çalar" className="fixed bottom-2 left-2 right-2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[600px] bg-white dark:bg-black border border-emerald-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-3 z-50 flex flex-col gap-2 transition-transform duration-300 pb-[calc(env(safe-area-inset-bottom)+4px)]">
+                <div role="region" aria-label="Ses çalar" className="fixed bottom-2 left-2 right-2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[600px] bg-white dark:bg-black border border-emerald-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-2 md:p-3 z-50 flex flex-col gap-1.5 md:gap-2 transition-transform duration-300 pb-[calc(env(safe-area-inset-bottom)+8px)] md:pb-[calc(env(safe-area-inset-bottom)+4px)]">
+                    
+                    {/* Row 1: Title & Close Button (Mobile optimized) */}
+                    <div className="flex items-center justify-between px-2 pt-1 md:hidden">
+                        <button onClick={scrollToActiveAyah} className="flex-1 min-w-0 pr-2 text-left group" title="Ayete git" aria-label={`${activeAyah.surahName} ${activeAyah.numberInSurah}. ayete git`}>
+                            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate group-hover:text-emerald-600 transition-colors">
+                                {activeAyah.surahName} {activeAyah.numberInSurah}. Ayet 
+                                <i className="fa-solid fa-location-crosshairs text-[10px] ml-1.5 opacity-60 transition-opacity"></i>
+                            </h3>
+                        </button>
+                        <button onClick={closePlayer} aria-label="Çaları kapat" className="w-7 h-7 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center shrink-0">
+                            <i className="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+
                     {/* Progress Bar */}
                     <div className="w-full flex items-center gap-2 px-2">
                         <span className="text-[10px] text-gray-500 dark:text-slate-400 font-mono w-8 text-right">{formatTime(currentTime)}</span>
@@ -2378,39 +2392,44 @@
                             value={currentTime}
                             onChange={(e) => seek(Number(e.target.value))}
                             aria-label="Ses ilerleme çubuğu"
-                            className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-emerald-600"
+                            className="flex-1 h-1.5 md:h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-emerald-600"
                         />
                         <span className="text-[10px] text-gray-500 dark:text-slate-400 font-mono w-8">{formatTime(duration)}</span>
                     </div>
 
                     <div className="flex items-center justify-between px-2 pb-1">
-                        <button onClick={scrollToActiveAyah} className="flex-1 min-w-0 pr-4 text-left group" title="Ayete git" aria-label={`${activeAyah.surahName} ${activeAyah.numberInSurah}. ayete git`}>
+                        {/* Desktop Only Ayah Title */}
+                        <button onClick={scrollToActiveAyah} className="hidden md:block flex-1 min-w-0 pr-4 text-left group" title="Ayete git" aria-label={`${activeAyah.surahName} ${activeAyah.numberInSurah}. ayete git`}>
                             <h3 className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate group-hover:text-emerald-600 transition-colors">{activeAyah.surahName} {activeAyah.numberInSurah}. Ayet <i className="fa-solid fa-location-crosshairs text-[9px] opacity-0 group-hover:opacity-60 transition-opacity"></i></h3>
                         </button>
-                        <div className="flex items-center gap-3 shrink-0">
+                        
+                        <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-2 md:gap-3 shrink-0">
                             <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shrink-0 h-8 border border-gray-200 dark:border-neutral-800 shadow-inner">
                                 <button onClick={() => setPlaybackRate(prev => Math.round(Math.max(0.5, prev - 0.25) * 100) / 100)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Yavaşlat" aria-label="Oynatma hızını azalt">-</button>
-                                <span className="w-8 text-center text-[10px] font-bold text-emerald-600 select-none" aria-label={`Oynatma hızı: ${playbackRate}x`}>{playbackRate}x</span>
+                                <span className="w-7 md:w-8 text-center text-[10px] font-bold text-emerald-600 select-none" aria-label={`Oynatma hızı: ${playbackRate}x`}>{playbackRate}x</span>
                                 <button onClick={() => setPlaybackRate(prev => Math.round(Math.min(2.0, prev + 0.25) * 100) / 100)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Hızlandır" aria-label="Oynatma hızını artır">+</button>
                             </div>
-                            <button onClick={() => setRepeatMode(prev => prev === 'none' ? 'one' : prev === 'one' ? 'all' : 'none')} className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors relative ${repeatMode !== 'none' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-emerald-600'}`} title={repeatMode === 'none' ? "Tekrar Kapalı" : repeatMode === 'one' ? "Tek Ayeti Tekrarla" : "Tüm Listeyi Tekrarla"} aria-label={repeatMode === 'none' ? 'Tekrar kapalı, tekrar modunu değiştir' : repeatMode === 'one' ? 'Tek ayet tekrar modu, değiştir' : 'Tüm liste tekrar modu, değiştir'} aria-pressed={repeatMode !== 'none'}>
-                                <i className="fa-solid fa-repeat text-xs"></i>
-                                {repeatMode === 'one' && <span className="absolute text-[8px] font-bold bottom-1 right-1.5 bg-white dark:bg-black rounded-full w-3 h-3 flex items-center justify-center leading-none">1</span>}
-                            </button>
-                            <button onClick={playPrev} aria-label="Önceki ayet" className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-slate-300 hover:text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-backward-step text-xs"></i></button>
-                            <button onClick={() => {
-                                const audio = audioRef.current;
-                                if (!audio.paused) {
-                                    audio.pause();
-                                    setIsPlaying(false);
-                                } else {
-                                    audio.play().then(() => setIsPlaying(true)).catch(console.error);
-                                }
-                            }} aria-label={isPlaying ? 'Dur' : 'Oynat'} className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-lg active:scale-95">
-                                {isPlaying ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-1"></i>}
-                            </button>
-                            <button onClick={playNext} aria-label="Sonraki ayet" className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-slate-300 hover:text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-forward-step text-xs"></i></button>
-                            <button onClick={closePlayer} aria-label="Çaları kapat" className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center ml-2"><i className="fa-solid fa-xmark"></i></button>
+                            
+                            <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                                <button onClick={() => setRepeatMode(prev => prev === 'none' ? 'one' : prev === 'one' ? 'all' : 'none')} className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors relative ${repeatMode !== 'none' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-emerald-600'}`} title={repeatMode === 'none' ? "Tekrar Kapalı" : repeatMode === 'one' ? "Tek Ayeti Tekrarla" : "Tüm Listeyi Tekrarla"} aria-label={repeatMode === 'none' ? 'Tekrar kapalı, tekrar modunu değiştir' : repeatMode === 'one' ? 'Tek ayet tekrar modu, değiştir' : 'Tüm liste tekrar modu, değiştir'} aria-pressed={repeatMode !== 'none'}>
+                                    <i className="fa-solid fa-repeat text-xs"></i>
+                                    {repeatMode === 'one' && <span className="absolute text-[8px] font-bold bottom-1 right-1.5 bg-white dark:bg-black rounded-full w-3 h-3 flex items-center justify-center leading-none">1</span>}
+                                </button>
+                                <button onClick={playPrev} aria-label="Önceki ayet" className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-slate-300 hover:text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-backward-step text-xs"></i></button>
+                                <button onClick={() => {
+                                    const audio = audioRef.current;
+                                    if (!audio.paused) {
+                                        audio.pause();
+                                        setIsPlaying(false);
+                                    } else {
+                                        audio.play().then(() => setIsPlaying(true)).catch(console.error);
+                                    }
+                                }} aria-label={isPlaying ? 'Dur' : 'Oynat'} className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-lg active:scale-95">
+                                    {isPlaying ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-1"></i>}
+                                </button>
+                                <button onClick={playNext} aria-label="Sonraki ayet" className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-slate-300 hover:text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-forward-step text-xs"></i></button>
+                                <button onClick={closePlayer} aria-label="Çaları kapat" className="hidden md:flex w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 items-center justify-center ml-2"><i className="fa-solid fa-xmark"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>
