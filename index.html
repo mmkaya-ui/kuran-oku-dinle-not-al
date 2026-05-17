@@ -3327,47 +3327,49 @@
 
                                     <section>
                                         <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-magnifying-glass text-xs"></i> Arama Özellikleri</h3>
-                                        <ul className="space-y-1.5 pl-2">
-                                            <li><span className="font-semibold">Kelime arama:</span> Herhangi bir Türkçe kelimeyi yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">namaz</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">sabır</code>)</li>
-                                            <li><span className="font-semibold">Sure içinde ara:</span> Sure adı + kelime yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Bakara namaz</code>)</li>
-                                            <li><span className="font-semibold">Sure aç:</span> Sadece sure adını yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Yasin</code>)</li>
-                                            <li><span className="font-semibold">Ayete git:</span> Sure adı + ayet numarası (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Bakara 255</code>)</li>
-                                            <li><span className="font-semibold">Numara ile git:</span> Sadece sure numarası yaz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">36</code>)</li>
+                                        <ul className="space-y-2 pl-2">
+                                            <li><span className="font-semibold">Tüm Meallerde Kelime Arama:</span> Yazdığınız herhangi bir kelime 6 farklı Türkçe mealde (Diyanet, Elmalılı vb.) eş zamanlı taranır (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">namaz</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">sabır</code>).</li>
+                                            <li><span className="font-semibold">Sure İçi Kelime Arama:</span> Aramayı belirli bir sureyle sınırlamak için sure adından sonra kelime yazabilirsiniz (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">Bakara namaz</code>).</li>
+                                            <li><span className="font-semibold">Ayete Doğrudan Gitme (Navigasyon):</span> Sure adı + ayet no (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">Bakara 183</code>) veya sure no + ayet no (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">2 183</code>) yazarak doğrudan ilgili ayete ışınlanabilirsiniz.</li>
+                                            <li><span className="font-semibold">Sure Açma:</span> Sadece sure adını (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">Yasin</code>) veya sure numarasını (örn: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">36</code>) yazarak sureyi açabilirsiniz.</li>
                                         </ul>
                                     </section>
 
                                     <section>
-                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-layer-group text-xs"></i> Listeler</h3>
-                                        <ul className="space-y-1.5 pl-2">
-                                            <li>Herhangi bir ayetin <i className="fa-solid fa-folder-plus text-xs"></i> butonuna basarak listeye ekle</li>
-                                            <li>Birden fazla ayet seçip <span className="font-semibold">Listeye Ekle</span> ile toplu ekle</li>
-                                            <li><i className="fa-solid fa-file-lines text-xs"></i> ile listeyi Arapça + okunuş + meal olarak <span className="font-semibold">.txt</span> indir</li>
-                                            <li><span className="font-semibold">Listeleri Yedekle</span> ile listelerini sakla, <span className="font-semibold">Yedek Yükle</span> ile başka cihaza taşı</li>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-layer-group text-xs"></i> Listeler (Playlists)</h3>
+                                        <ul className="space-y-2 pl-2">
+                                            <li>Herhangi bir ayetin üzerindeki <i className="fa-solid fa-folder-plus text-xs"></i> butonuna basarak listelerinize ekleyin.</li>
+                                            <li>Birden fazla ayet seçip <span className="font-semibold">Listeye Ekle</span> butonuyla toplu listeler oluşturun.</li>
+                                            <li><i className="fa-solid fa-file-lines text-xs"></i> butonuyla listelerinizi Arapça, okunuş ve mealler dahil, her bilgisayar ve telefonda bozulmadan açılan evrensel UTF-8 formatında (.txt) cihazınıza indirin.</li>
+                                            <li><span className="font-semibold">Listeleri Yedekle</span> ile tüm listelerinizi yedekleyin, <span className="font-semibold">Yedek Yükle</span> ile başka cihazlara aktarın.</li>
                                         </ul>
                                     </section>
 
                                     <section>
-                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-comment text-xs"></i> Notlar</h3>
-                                        <ul className="space-y-1.5 pl-2">
-                                            <li>Her ayetin <i className="fa-solid fa-pen-to-square text-xs"></i> butonuyla not al, tarayıcında saklanır</li>
-                                            <li>Header'daki <span className="font-semibold">Notlar</span> butonu ile tüm notlarını yedekle ve başka cihaza taşı</li>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-comment text-xs"></i> Kişisel Notlar</h3>
+                                        <ul className="space-y-2 pl-2">
+                                            <li>Ayet kartlarının üzerindeki not simgesine tıklayarak notlar ekleyin; notlarınız tarayıcınızda güvenle saklanır.</li>
+                                            <li><span className="font-semibold">Gelişmiş Not Arama:</span> Notlarım menüsündeki akıllı arama motorunu kullanarak kendi notlarınız, mealler, Arapça kelimeler veya doğrudan <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">Bakara 183</code> gibi sure/ayet kombinasyonları arasında anında filtreleme yapın.</li>
+                                            <li>Notlarım ekranındaki pratik aksiyon butonlarıyla ayete anında geri dönebilir veya notlarınızı silebilirsiniz.</li>
+                                            <li>Notlarınızı dilediğiniz an tek tıkla bilgisayarınıza yedekleyebilir veya yedekten geri yükleyebilirsiniz.</li>
                                         </ul>
                                     </section>
 
                                     <section>
-                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-play text-xs"></i> Dinleme</h3>
-                                        <ul className="space-y-1.5 pl-2">
-                                            <li>Herhangi bir ayetin <span className="font-semibold">Dinle</span> butonuna bas, otomatik devam eder</li>
-                                            <li>Alttaki çalar çubuğundan hız ayarla (0.5× – 2×) ve tekrar modunu seç</li>
-                                            <li>Klavye kısayolları: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">Space</code> oynat/dur · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">→</code> sonraki · <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">←</code> önceki</li>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-play text-xs"></i> Ses Oynatma & Dinleme</h3>
+                                        <ul className="space-y-2 pl-2">
+                                            <li>Herhangi bir ayetin <span className="font-semibold">Dinle</span> butonuna basın; ayetler sırasıyla kesintisiz şekilde çalmaya devam eder.</li>
+                                            <li>Alt kısımdaki oynatıcı çubuğundan ses hızını ayarlayabilir (0.5× – 2×) ve tekrar modlarını (Tümü, Tek Ayet) yönetebilirsiniz.</li>
+                                            <li><span className="font-semibold">Arka Planda Çalma (Background Audio):</span> Hem iOS hem de Android cihazlarda ekran kilitlense ya da tarayıcı arka plana alınsa dahi oynatım kesintisiz devam eder.</li>
+                                            <li>Masaüstü klavye kısayolları: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">Space</code> oynat/duraklat · <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">→</code> sonraki ayet · <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">←</code> önceki ayet.</li>
                                         </ul>
                                     </section>
 
                                     <section>
-                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-bookmark text-xs"></i> Yer İmi</h3>
-                                        <ul className="space-y-1.5 pl-2">
-                                            <li>Bir ayet dinlenince otomatik olarak yer imi oluşturulur</li>
-                                            <li>Uygulamayı kapatsanız da kaldığınız yerden <span className="font-semibold">Devam Et</span> ile devam edin</li>
+                                        <h3 className="font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2"><i className="fa-solid fa-bookmark text-xs"></i> Akıllı Yer İmi & Kaldığı Yer</h3>
+                                        <ul className="space-y-2 pl-2">
+                                            <li>Dinlediğiniz ayetler otomatik olarak akıllı yer imi olarak kaydedilir.</li>
+                                            <li>Uygulamayı tamamen kapatıp açsanız dahi, ana sayfadaki yeşil <span className="font-semibold">Devam Et</span> butonuyla kaldığınız yere anında ve yağ gibi akan bir hızla geri dönersiniz.</li>
                                         </ul>
                                     </section>
 
