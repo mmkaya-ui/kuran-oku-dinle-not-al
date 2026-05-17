@@ -3006,17 +3006,53 @@
             const [noteSearchQuery, setNoteSearchQuery] = useState('');
             
             const filteredNotes = useMemo(() => {
-                if (!noteSearchQuery.trim()) return notes;
-                const query = noteSearchQuery.toLowerCase();
+                const queryRaw = noteSearchQuery.trim();
+                if (!queryRaw) return notes;
+                
+                const normQuery = normalizeText(queryRaw);
+                
+                // Regex to capture Surah Name + Verse Number, e.g. "bakara 183" or "ali imran 5"
+                const surahAyahRegex = /^(.+?)\s+(\d+)$/;
+                const regexMatch = normQuery.match(surahAyahRegex);
+                
                 return notes.filter(note => {
                     const ayahData = ayahDetails[note.key];
-                    return (
-                        note.noteText.toLowerCase().includes(query) ||
-                        note.surahName.toLowerCase().includes(query) ||
-                        String(note.ayahNum).includes(query) ||
-                        (ayahData?.text && ayahData.text.toLowerCase().includes(query)) ||
-                        (ayahData?.diyanet && ayahData.diyanet.toLowerCase().includes(query))
-                    );
+                    const normSurahName = normalizeText(note.surahName);
+                    const normNoteText = normalizeText(note.noteText);
+                    
+                    // 1. Exact Surah + Ayah number match (e.g., "bakara 183")
+                    if (regexMatch) {
+                        const querySurah = regexMatch[1];
+                        const queryAyahNum = parseInt(regexMatch[2]);
+                        
+                        if (normSurahName.includes(querySurah) && note.ayahNum === queryAyahNum) {
+                            return true;
+                        }
+                    }
+                    
+                    // 2. Multi-term, multi-field search (checks Surah name, Ayah number, Note text, and all translations)
+                    const queryTerms = normQuery.split(/\s+/).filter(Boolean);
+                    
+                    return queryTerms.every(term => {
+                        if (normSurahName.includes(term)) return true;
+                        if (String(note.ayahNum) === term) return true;
+                        if (normNoteText.includes(term)) return true;
+                        
+                        if (ayahData) {
+                            // Check Arabic text
+                            if (ayahData.text && ayahData.text.includes(term)) return true;
+                            // Check Transliteration
+                            if (ayahData.transliteration && normalizeText(ayahData.transliteration).includes(term)) return true;
+                            // Check all available translations (meals)
+                            if (ayahData.diyanet && normalizeText(ayahData.diyanet).includes(term)) return true;
+                            if (ayahData.yazir && normalizeText(ayahData.yazir).includes(term)) return true;
+                            if (ayahData.ates && normalizeText(ayahData.ates).includes(term)) return true;
+                            if (ayahData.ozturk && normalizeText(ayahData.ozturk).includes(term)) return true;
+                            if (ayahData.yildirim && normalizeText(ayahData.yildirim).includes(term)) return true;
+                            if (ayahData.yuksel && normalizeText(ayahData.yuksel).includes(term)) return true;
+                        }
+                        return false;
+                    });
                 });
             }, [notes, noteSearchQuery, ayahDetails]);
 
@@ -3046,7 +3082,7 @@
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Notlarında ara..."
+                                placeholder="Sure adı, ayet no, meal veya not içinde ara... (Örn: Bakara 183)"
                                 value={noteSearchQuery}
                                 onChange={(e) => setNoteSearchQuery(e.target.value)}
                                 className="w-full p-2.5 pl-10 pr-8 rounded-lg text-sm bg-white dark:bg-black border border-gray-200 dark:border-neutral-700 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition-colors"
