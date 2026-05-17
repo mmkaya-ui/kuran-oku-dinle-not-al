@@ -1089,20 +1089,23 @@
             // Scroll pozisyonunu kaydet ve geri yukle (Notlar/Listeler <-> Kuran view)
             useEffect(() => {
                 if (viewMode === 'reader') {
+                    const mainScroll = document.getElementById('main-scroll');
+                    if (!mainScroll) return;
+
                     // Reader view'a geri donunce scroll pozisyonunu restore et
                     if (scrollPositionRef.current > 0) {
                         setTimeout(() => {
-                            window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' });
+                            mainScroll.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' });
                         }, 50);
                     }
                     
                     // Notlar/Listeler view'a giderken tam ayrilmadan onceki degeri yakalamak icin
                     // surekli scroll dinleyicisi ekliyoruz. Boylece unmount oldugunda elimizde son pozisyon kalir.
                     const handleScroll = () => {
-                        scrollPositionRef.current = window.scrollY;
+                        scrollPositionRef.current = mainScroll.scrollTop;
                     };
-                    window.addEventListener('scroll', handleScroll, { passive: true });
-                    return () => window.removeEventListener('scroll', handleScroll);
+                    mainScroll.addEventListener('scroll', handleScroll, { passive: true });
+                    return () => mainScroll.removeEventListener('scroll', handleScroll);
                 }
             }, [viewMode]);
 
