@@ -993,6 +993,7 @@
             const playPrevRef = useRef(null);
             const isEndedProcessing = useRef(false);
             const playAyahRef = useRef(null);
+            const scrollPositionRef = useRef(0); // Store scroll position when switching views
 
             // ═══════════════════════════════════════════════════
             // SECTION 3 — PLAYLIST & SELECTION
@@ -1076,6 +1077,22 @@
 
                 return () => clearTimeout(timer);
             }, [activeAyah, viewMode, ayahs, detailedResults, activePlaylist]);
+
+            // Scroll pozisyonunu kaydet ve geri yukle (Notlar/Listeler <-> Kuran view)
+            useEffect(() => {
+                if (viewMode === 'reader') {
+                    // Reader view'a geri donunce scroll pozisyonunu restore et
+                    if (scrollPositionRef.current > 0) {
+                        setTimeout(() => {
+                            window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' });
+                            scrollPositionRef.current = 0; // Reset after restoring
+                        }, 50);
+                    }
+                } else if (viewMode === 'my_notes' || viewMode === 'playlists_list') {
+                    // Notlar/Listeler view'a giderken scroll pozisyonunu kaydet
+                    scrollPositionRef.current = window.scrollY;
+                }
+            }, [viewMode]);
 
             useEffect(() => {
                 if (ayahs.length === 0) return;
@@ -1427,7 +1444,9 @@
 
                 const audio = audioRef.current;
                 const currentAyahId = audio.__activeAyah?.number;
-                const isSameAyah = currentAyahId && Number(currentAyahId) === Number(ayah.number);
+                // Check both audio element property AND React state to handle initial load cases
+                const isSameAyah = (currentAyahId && Number(currentAyahId) === Number(ayah.number)) ||
+                                   (activeAyah && Number(activeAyah.number) === Number(ayah.number));
 
                 if (isSameAyah && !options.forcePlay) {
                     if (audio.paused) {
