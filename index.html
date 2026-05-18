@@ -1511,42 +1511,17 @@
                     return;
                 }
 
-                if (!options.onlyAudio) {
-                    setActiveAyah(ayah);
-                }
-
+                // 1. Update the Audio element FIRST (no explicit pause() or load() to prevent lockscreen dismissal)
                 const targetSrc = ayah.audio || "";
-                
-                // Synchronously update Media Session Metadata and State to preserve lockscreen persistence
-                if ('mediaSession' in navigator) {
-                    try {
-                        const surahName = ayah.surahName || getSurahNameTR(ayah.surahNumber || activeSurah?.number);
-                        navigator.mediaSession.metadata = new MediaMetadata({
-                            title: `Ayet ${ayah.numberInSurah} (${surahName})`,
-                            artist: 'Kur\'an-ı Kerim',
-                            album: surahName,
-                            artwork: [
-                                { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
-                                { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }
-                            ]
-                        });
-                        navigator.mediaSession.playbackState = "playing";
-                    } catch (e) {
-                        console.warn("Failed to set MediaSession metadata:", e);
-                    }
-                }
-
-                // Use getAttribute to get literal src for reliable comparison
                 const currentSrc = audio.getAttribute('src');
                 if (currentSrc !== targetSrc) {
-                    audio.pause();
                     audio.src = targetSrc;
-                    audio.load(); // Explicitly trigger load for mobile stability
                 }
                 
                 audio.__activeAyah = ayah;
                 audio.playbackRate = playbackRate;
-                
+
+                // 2. Start playing immediately to preserve background autoplay trust chain
                 if (targetSrc) {
                     isPlayingRef.current = true;
                     audio.play().catch(e => {
@@ -1562,6 +1537,30 @@
                     if ('mediaSession' in navigator) {
                         navigator.mediaSession.playbackState = "none";
                     }
+                }
+
+                // 3. Update Media Metadata (using absolute artwork URLs to prevent background fetch failures on Android)
+                if ('mediaSession' in navigator) {
+                    try {
+                        const surahName = ayah.surahName || getSurahNameTR(ayah.surahNumber || activeSurah?.number);
+                        const baseUrl = window.location.origin + window.location.pathname.replace(/\/$/, "");
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: `Ayet ${ayah.numberInSurah} (${surahName})`,
+                            artist: 'Kur\'an-ı Kerim',
+                            album: surahName,
+                            artwork: [
+                                { src: `${baseUrl}/icon-192.png`, sizes: '192x192', type: 'image/png' },
+                                { src: `${baseUrl}/icon-512.png`, sizes: '512x512', type: 'image/png' }
+                            ]
+                        });
+                    } catch (e) {
+                        console.warn("Failed to set MediaSession metadata:", e);
+                    }
+                }
+
+                // 4. Finally, update React State (UI) last to offload rendering overhead from the synchronous audio thread
+                if (!options.onlyAudio) {
+                    setActiveAyah(ayah);
                 }
             };
             playAyahRef.current = playAyah;
