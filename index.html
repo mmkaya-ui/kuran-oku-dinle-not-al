@@ -2602,7 +2602,7 @@
             );
 
             return (
-                <main className={`flex-1 overflow-y-auto overscroll-contain bg-slate-100 dark:bg-black p-4 md:p-8 scroll-smooth ${viewMode === 'reader' ? 'pt-4 md:pt-8' : 'pt-4 md:pt-8'} transition-colors duration-300`} id="main-scroll">
+                <main className={`flex-1 overflow-y-auto ios-scroll bg-slate-100 dark:bg-black p-4 md:p-8 scroll-smooth ${viewMode === 'reader' ? 'pt-4 md:pt-8' : 'pt-4 md:pt-8'} transition-colors duration-300`} id="main-scroll">
                     <div className="max-w-4xl mx-auto pb-32">
                         {/* Minimal loading indicator - just top spinner, no blocking overlay */}
                         {loading && (
