@@ -968,7 +968,7 @@
             const autoPlayAfterLoad = useRef(false);
             const playNextRef = useRef(null);
             const playPrevRef = useRef(null);
-            const isEndedProcessing = useRef(false);
+            const lastTransitionTimeRef = useRef(0);
             const playAyahRef = useRef(null);
             const nextSurahCacheRef = useRef(null);
             const scrollPositionRef = useRef(0); // Store scroll position when switching views
@@ -1116,8 +1116,12 @@
                     isPlayingRef.current = false;
                 };
                 const onEnded = () => {
-                    if (isEndedProcessing.current) return;
-                    isEndedProcessing.current = true;
+                    const now = Date.now();
+                    if (now - lastTransitionTimeRef.current < 800) {
+                        console.log("[Audio] Ignored duplicate ended event (throttled by timestamp)");
+                        return;
+                    }
+                    lastTransitionTimeRef.current = now;
                     
                     try {
                         if (repeatMode === 'one') {
@@ -1127,8 +1131,6 @@
                         }
                     } catch (e) {
                         console.error("onEnded error:", e);
-                    } finally {
-                        setTimeout(() => { isEndedProcessing.current = false; }, 800);
                     }
                 };
 
