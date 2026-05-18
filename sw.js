@@ -126,10 +126,17 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
     // 1. Audio Files (cdn.islamic.network)
-    // Strategy: Cache-First with Range request handling for iOS Safari compatibility
+    // Strategy: Bypass the Service Worker when online to let the browser's native engine
+    // stream background/locked-screen audio stably without worker suspension limits.
+    // When offline, serve from cache with robust iOS Safari range support.
     if (url.origin === 'https://cdn.islamic.network') {
-        event.respondWith(handleRangeRequest(event.request, AUDIO_CACHE_NAME));
-        return;
+        if (self.navigator.onLine) {
+            // Let the browser handle the network request natively (completely bypassing SW interception)
+            return;
+        } else {
+            event.respondWith(handleRangeRequest(event.request, AUDIO_CACHE_NAME));
+            return;
+        }
     }
 
     // iOS Safari uses Range requests for other media. Do not intercept unless audio, let browser handle streaming.
