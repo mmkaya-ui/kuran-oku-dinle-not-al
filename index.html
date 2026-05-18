@@ -1361,7 +1361,17 @@
             }, []);
 
             useEffect(() => {
-                safeStorage.setItem('quran_playlists', JSON.stringify(playlists));
+                // Strip heavy text fields before saving to localStorage to maintain a lightweight storage footprint
+                const lightweightPlaylists = playlists.map(p => ({
+                    ...p,
+                    items: p.items.map(item => ({
+                        number: item.number,
+                        surahNumber: item.surahNumber || item.surah?.number,
+                        numberInSurah: item.numberInSurah,
+                        isPartial: true
+                    }))
+                }));
+                safeStorage.setItem('quran_playlists', JSON.stringify(lightweightPlaylists));
             }, [playlists]);
 
             useEffect(() => {
@@ -1962,15 +1972,6 @@
                         numberInSurah: ayahData.numberInSurah,
                         surahName: ayahData.surahName,
                         number: ayahData.number,
-                        arabicText: ayahData.text,
-                        transliteration: ayahData.transliteration,
-                        diyanet: ayahData.diyanet,
-                        yazir: ayahData.yazir,
-                        ates: ayahData.ates,
-                        ozturk: ayahData.ozturk,
-                        yildirim: ayahData.yildirim,
-                        yuksel: ayahData.yuksel,
-                        audio: ayahData.audio,
                         savedAt: Date.now()
                     };
                     
@@ -2862,7 +2863,7 @@
 
         // My Notes View Component - Fast loading with stored ayah data
         const MyNotesView = () => {
-            const { showToast, surahs, fetchSurah, setViewMode, viewMode, jumpTargetRef } = useQuran();
+            const { showToast, surahs, fetchSurah, setViewMode, viewMode, jumpTargetRef, fetchDetailsForMatches } = useQuran();
             const [notes, setNotes] = useState([]);
             const [ayahDetails, setAyahDetails] = useState({});
 
@@ -2881,11 +2882,12 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // Load notes with stored ayah data - NO API calls needed!
+            // Load notes with on-the-fly RAM-based hydration - NO persistent storage overhead!
             useEffect(() => {
-                const loadNotes = () => {
+                const loadNotes = async () => {
                     const loadedNotes = [];
                     const details = {};
+                    const toHydrate = [];
                     
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
@@ -2901,17 +2903,20 @@
                                 try {
                                     const noteData = JSON.parse(noteDataRaw);
                                     
-                                    // New format: has full ayah data stored
+                                    // Handle both new lightweight structure and legacy stored structure
+                                    const noteText = noteData.text || noteDataRaw;
+                                    const surahName = noteData.surahName || getSurahNameTR(surahNum);
+                                    
+                                    loadedNotes.push({
+                                        key,
+                                        surahNum,
+                                        ayahNum,
+                                        surahName,
+                                        noteText
+                                    });
+                                    
                                     if (noteData.arabicText) {
-                                        loadedNotes.push({
-                                            key,
-                                            surahNum,
-                                            ayahNum,
-                                            surahName: noteData.surahName || getSurahNameTR(surahNum),
-                                            noteText: noteData.text
-                                        });
-                                        
-                                        // Use stored ayah data directly
+                                        // Legacy structure: use cached text directly
                                         details[key] = {
                                             number: noteData.number,
                                             numberInSurah: noteData.numberInSurah,
@@ -2928,23 +2933,26 @@
                                             audio: noteData.audio
                                         };
                                     } else {
-                                        // Old format: just text - migrate on view
-                                        loadedNotes.push({
+                                        // New structure: queue for RAM-based background hydration
+                                        toHydrate.push({
                                             key,
-                                            surahNum,
-                                            ayahNum,
-                                            surahName: getSurahNameTR(surahNum),
-                                            noteText: noteData.text || noteDataRaw
+                                            surah: { number: surahNum },
+                                            numberInSurah: ayahNum
                                         });
                                     }
                                 } catch {
-                                    // Plain text fallback
+                                    // Plain text legacy fallback
                                     loadedNotes.push({
                                         key,
                                         surahNum,
                                         ayahNum,
                                         surahName: getSurahNameTR(surahNum),
                                         noteText: noteDataRaw
+                                    });
+                                    toHydrate.push({
+                                        key,
+                                        surah: { number: surahNum },
+                                        numberInSurah: ayahNum
                                     });
                                 }
                             }
@@ -2958,6 +2966,29 @@
                     
                     setNotes(loadedNotes);
                     setAyahDetails(details);
+
+                    // Fetch details dynamically in chunks of 5 and enrich state (in-memory only)
+                    if (toHydrate.length > 0) {
+                        try {
+                            const chunkSizes = 5;
+                            for (let i = 0; i < toHydrate.length; i += chunkSizes) {
+                                const chunk = toHydrate.slice(i, i + chunkSizes);
+                                const matches = chunk.map(p => ({ surah: p.surah, numberInSurah: p.numberInSurah }));
+                                const fetchedDetails = await fetchDetailsForMatches(matches);
+                                
+                                setAyahDetails(prev => {
+                                    const next = { ...prev };
+                                    fetchedDetails.forEach(d => {
+                                        const noteKey = `quran_note_${d.surahNumber}_${d.numberInSurah}`;
+                                        next[noteKey] = d;
+                                    });
+                                    return next;
+                                });
+                            }
+                        } catch (err) {
+                            console.error("Notes dynamic hydration failed:", err);
+                        }
+                    }
                 };
                 
                 loadNotes();
