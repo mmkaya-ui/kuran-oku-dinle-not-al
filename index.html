@@ -359,20 +359,21 @@
                     }
                 };
 
-                // Handle Back Button
+                // Combined popstate listener to handle back/forward navigation and hash routing
+                let _popstateJustFired = false;
                 window.addEventListener('popstate', (event) => {
+                    _popstateJustFired = true;
+                    setTimeout(() => { _popstateJustFired = false; }, 50);
+
                     const state = event.state;
+                    const route = parseQuranHash();
 
-                    if (state && state.quran) {
-                        // We are in Quran mode in history
+                    if ((state && state.quran) || route) {
                         window.toggleQuranView(true, true); // Open UI without pushing state
-
-                        // Delegate specific view navigation to React if valid
                         if (window.dispatchQuranNavigation) {
-                            window.dispatchQuranNavigation(state);
+                            window.dispatchQuranNavigation(state || { quran: true, ...route });
                         }
                     } else {
-                        // We are back at "root" (Schedule)
                         window.toggleQuranView(false, true); // Close UI without pushing state
                     }
                 });
@@ -417,32 +418,10 @@
                     }, 100);
                 }
 
-                // hashchange: sadece popstate tarafından yönetilmeyen durumlarda
-                let _popstateJustFired = false;
-                window.addEventListener('popstate', (e) => { 
-                    _popstateJustFired = true; 
-                    setTimeout(() => { _popstateJustFired = false; }, 50);
-                    // Handle back/forward buttons with hash
-                    const route = parseQuranHash();
-                    if (route && window.dispatchQuranNavigation) {
-                        window.dispatchQuranNavigation({ quran: true, ...route });
-                    } else if (!route) {
-                        window.toggleQuranView(false, true);
-                    }
-                }, { capture: true });
                 window.addEventListener('hashchange', () => {
                     if (_popstateJustFired) return;
                     if (window.location.hash.startsWith('#quran')) {
-                        // Parse hash for direct navigation (faster than delayed processing)
-                        const hash = window.location.hash;
-                        const path = hash.replace('#quran/', '');
-                        const parts = path.split('/');
-                        const surahNum = parseInt(parts[0]);
-                        const ayahNum = parts[1] ? parseInt(parts[1]) : null;
-                        
                         window.toggleQuranView(true, true);
-                        
-                        // Handle special views: notes, playlists
                         const route = parseQuranHash();
                         if (route && window.dispatchQuranNavigation) {
                             window.dispatchQuranNavigation({ quran: true, ...route });
@@ -836,10 +815,6 @@
                 }
                 document.addEventListener('DOMContentLoaded', () => {
                     new App().init();
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.register('./sw.js')
-                            .catch(err => console.warn('[SW] Registration failed:', err));
-                    }
                 });
             })();
     </script>
@@ -1975,14 +1950,9 @@
                         savedAt: Date.now()
                     };
                     
-                    try {
-                        localStorage.setItem(noteKey, JSON.stringify(noteData));
-                    } catch (e) {
-                        console.error('Note save failed:', e.message);
-                        alert('Not kaydedilemedi: ' + e.message);
-                    }
+                    safeStorage.setItem(noteKey, JSON.stringify(noteData));
                 } else {
-                    localStorage.removeItem(noteKey);
+                    safeStorage.removeItem(noteKey);
                 }
             };
 

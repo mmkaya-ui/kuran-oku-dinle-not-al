@@ -2,34 +2,79 @@ const CACHE_NAME = 'quran-v25';
 const DYNAMIC_CACHE_NAME = 'quran-app-dynamic-v25';
 const AUDIO_CACHE_NAME = 'quran-audio-v25';
 
-const MAX_AUDIO_ENTRIES = 500;   // ~40MB, more reasonable
-const MAX_API_ENTRIES   = 100;   // API responses, LRU eviction
+const MAX_AUDIO_ENTRIES = 500;   // ~40MB limit for audio files
+const MAX_API_ENTRIES   = 100;   // API responses limit
 
-// LRU Cache Eviction - deletes least recently used entries first
+// FIFO Cache Eviction - deletes oldest entries when limit exceeded
 async function trimCache(cacheName, maxEntries) {
-    const cache = await caches.open(cacheName);
-    const keys = await cache.keys();
-    if (keys.length > maxEntries) {
-        // Sort by last accessed time if available, otherwise FIFO
-        // Use LRU: keep most recently used, delete oldest
-        const keysToDelete = keys.slice(0, keys.length - maxEntries);
-        for (const key of keysToDelete) {
-            await cache.delete(key);
+    try {
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        if (keys.length > maxEntries) {
+            const keysToDelete = keys.slice(0, keys.length - maxEntries);
+            for (const key of keysToDelete) {
+                await cache.delete(key);
+            }
         }
+    } catch (e) {
+        console.warn('[SW] trimCache error:', e);
     }
 }
 
-// Update last accessed time for LRU tracking
-async function touchCacheEntry(cacheName, request) {
+// Handles iOS Safari/WebKit Range requests by serving sliced buffer from cache
+async function handleRangeRequest(request, cacheName) {
     try {
         const cache = await caches.open(cacheName);
-        const response = await cache.match(request);
-        if (response) {
-            // Re-put to update "last accessed" ordering
-            await cache.put(request, response.clone());
+        let cachedResponse = await cache.match(request);
+        
+        // If not in cache, fetch the FULL resource from network first to cache it safely as a 200 response
+        if (!cachedResponse) {
+            const cleanRequest = new Request(request.url, {
+                method: 'GET',
+                headers: new Headers(request.headers)
+            });
+            cleanRequest.headers.delete('range');
+            
+            const networkResponse = await fetch(cleanRequest);
+            if (networkResponse.status === 200) {
+                await cache.put(request, networkResponse.clone());
+                trimCache(cacheName, MAX_AUDIO_ENTRIES);
+            }
+            cachedResponse = await cache.match(request);
         }
-    } catch (e) {
-        // Ignore touch errors
+
+        if (!cachedResponse) {
+            return new Response('', { status: 404 });
+        }
+
+        const rangeHeader = request.headers.get('range');
+        if (!rangeHeader) {
+            return cachedResponse;
+        }
+
+        const arrayBuffer = await cachedResponse.arrayBuffer();
+        const bytes = /^bytes=(\d+)-(\d+)?$/g.exec(rangeHeader);
+        if (bytes) {
+            const start = parseInt(bytes[1], 10);
+            const end = bytes[2] ? parseInt(bytes[2], 10) : arrayBuffer.byteLength - 1;
+            const chunk = arrayBuffer.slice(start, end + 1);
+
+            const headers = new Headers(cachedResponse.headers);
+            headers.set('Content-Range', `bytes ${start}-${end}/${arrayBuffer.byteLength}`);
+            headers.set('Content-Length', String(chunk.byteLength));
+            headers.set('Accept-Ranges', 'bytes');
+
+            return new Response(chunk, {
+                status: 206,
+                statusText: 'Partial Content',
+                headers: headers
+            });
+        }
+
+        return cachedResponse;
+    } catch (err) {
+        console.error('[SW] Range request error:', err);
+        return fetch(request);
     }
 }
 
@@ -62,12 +107,12 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activate Event - Clean up old caches
+// Activate Event - Clean up old caches but PRESERVE AUDIO_CACHE_NAME
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keyList) => {
             return Promise.all(keyList.map((key) => {
-                if (key !== CACHE_NAME && key !== DYNAMIC_CACHE_NAME) {
+                if (key !== CACHE_NAME && key !== DYNAMIC_CACHE_NAME && key !== AUDIO_CACHE_NAME) {
                     console.log('[Service Worker] Removing old cache', key);
                     return caches.delete(key);
                 }
@@ -80,64 +125,35 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // iOS Safari uses Range requests for audio/video. Do not intercept, let browser handle streaming.
+    // 1. Audio Files (cdn.islamic.network)
+    // Strategy: Cache-First with Range request handling for iOS Safari compatibility
+    if (url.origin === 'https://cdn.islamic.network') {
+        event.respondWith(handleRangeRequest(event.request, AUDIO_CACHE_NAME));
+        return;
+    }
+
+    // iOS Safari uses Range requests for other media. Do not intercept unless audio, let browser handle streaming.
     if (event.request.headers.has('range')) {
         event.respondWith(fetch(event.request));
         return;
     }
 
-    // 1. API Requests (api.alquran.cloud)
-    // Strategy: Cache First with background update, LRU eviction
+    // 2. API Requests (api.alquran.cloud)
+    // Strategy: Stale-While-Revalidate with background updates
     if (url.origin === 'https://api.alquran.cloud') {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
-                if (cachedResponse) {
-                    // Update LRU timestamp in background
-                    touchCacheEntry(DYNAMIC_CACHE_NAME, event.request);
-                    // Stale-while-revalidate: return cache immediately, update in background
-                    fetch(event.request).then((networkResponse) => {
-                        if (networkResponse.status === 200) {
-                            caches.open(DYNAMIC_CACHE_NAME).then(cache => {
-                                cache.put(event.request, networkResponse.clone());
-                                trimCache(DYNAMIC_CACHE_NAME, MAX_API_ENTRIES);
-                            });
-                        }
-                    }).catch(() => {});
-                    return cachedResponse;
-                }
-                // No cache - fetch and store
-                return fetch(event.request).then((networkResponse) => {
+                const networkFetch = fetch(event.request).then((networkResponse) => {
                     if (networkResponse.status === 200) {
-                        return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
+                        caches.open(DYNAMIC_CACHE_NAME).then(cache => {
                             cache.put(event.request, networkResponse.clone());
                             trimCache(DYNAMIC_CACHE_NAME, MAX_API_ENTRIES);
-                            return networkResponse;
                         });
                     }
                     return networkResponse;
-                });
-            })
-        );
-        return;
-    }
+                }).catch(() => {});
 
-    // 2. Audio Files (cdn.islamic.network)
-    // Strategy: Cache First with LRU eviction — cap at MAX_AUDIO_ENTRIES
-    if (url.origin === 'https://cdn.islamic.network') {
-        event.respondWith(
-            caches.match(event.request).then((cachedResponse) => {
-                if (cachedResponse) {
-                    // Update LRU timestamp
-                    touchCacheEntry(AUDIO_CACHE_NAME, event.request);
-                    return cachedResponse;
-                }
-                return fetch(event.request).then((networkResponse) => {
-                    return caches.open(AUDIO_CACHE_NAME).then((cache) => {
-                        cache.put(event.request, networkResponse.clone());
-                        trimCache(AUDIO_CACHE_NAME, MAX_AUDIO_ENTRIES);
-                        return networkResponse;
-                    });
-                });
+                return cachedResponse || networkFetch;
             })
         );
         return;
@@ -180,7 +196,6 @@ self.addEventListener('fetch', (event) => {
     }
 
     // 5. Google Sheets (ders programı verisi) — Network only, no caching
-    // App handles its own localStorage caching for this
     if (url.origin === 'https://docs.google.com') {
         event.respondWith(fetch(event.request));
         return;
