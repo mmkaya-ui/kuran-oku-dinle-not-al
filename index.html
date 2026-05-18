@@ -970,6 +970,7 @@
             const playPrevRef = useRef(null);
             const isEndedProcessing = useRef(false);
             const playAyahRef = useRef(null);
+            const nextSurahCacheRef = useRef(null);
             const scrollPositionRef = useRef(0); // Store scroll position when switching views
 
             // Reset scroll memory when surah changes
@@ -1117,24 +1118,18 @@
                 const onEnded = () => {
                     if (isEndedProcessing.current) return;
                     isEndedProcessing.current = true;
-                    setIsPlaying(false);
-                    isPlayingRef.current = false;
                     
-                    // Async işlemler bitince unlock (race condition koruması)
-                    const handleNext = async () => {
-                        try {
-                            if (repeatMode === 'one') {
-                                await playAyahRef.current?.(audioRef.current.__activeAyah, { forcePlay: true });
-                            } else {
-                                await playNextRef.current?.();
-                            }
-                        } finally {
-                            // 800ms bekle, sonra unlock (çakışma koruması)
-                            setTimeout(() => { isEndedProcessing.current = false; }, 800);
+                    try {
+                        if (repeatMode === 'one') {
+                            playAyahRef.current?.(audioRef.current.__activeAyah, { forcePlay: true, automatic: true });
+                        } else {
+                            playNextRef.current?.({ automatic: true });
                         }
-                    };
-                    
-                    handleNext();
+                    } catch (e) {
+                        console.error("onEnded error:", e);
+                    } finally {
+                        setTimeout(() => { isEndedProcessing.current = false; }, 800);
+                    }
                 };
 
                 // Audio error recovery - retry on network errors
@@ -1224,6 +1219,58 @@
                 audio.addEventListener('loadedmetadata', onLoaded);
                 return () => audio.removeEventListener('loadedmetadata', onLoaded);
             }, [playbackRate]);
+
+            const prefetchSurah = async (surah) => {
+                if (!surah) return;
+                try {
+                    const editionsStr = `${EDITIONS.arabic},${EDITIONS.transliteration},${EDITIONS.tr_diyanet},${EDITIONS.tr_yazir},${EDITIONS.tr_ates},${EDITIONS.tr_ozturk},${EDITIONS.tr_yildirim},${EDITIONS.tr_yuksel},${EDITIONS.audio}`;
+                    const [editionsRes, metaRes] = await Promise.all([
+                        fetchWithRetry(`${API_BASE}/surah/${surah.number}/editions/${editionsStr}`),
+                        fetchWithRetry(`${API_BASE}/surah/${surah.number}`)
+                    ]);
+
+                    const editionsData = await editionsRes.json();
+                    const metaData = await metaRes.json();
+
+                    const combinedAyahs = metaData.data.ayahs.map((ayah, index) => ({
+                        ...ayah,
+                        surahName: getSurahNameTR(surah.number),
+                        surahNumber: surah.number,
+                        transliteration: editionsData.data[1]?.ayahs[index]?.text || "",
+                        diyanet: editionsData.data[2]?.ayahs[index]?.text || "",
+                        yazir: editionsData.data[3]?.ayahs[index]?.text || "",
+                        ates: editionsData.data[4]?.ayahs[index]?.text || "",
+                        ozturk: editionsData.data[5]?.ayahs[index]?.text || "",
+                        yildirim: editionsData.data[6]?.ayahs[index]?.text || "",
+                        yuksel: editionsData.data[7]?.ayahs[index]?.text || "",
+                        audio: editionsData.data[8]?.ayahs[index]?.audio || ""
+                    }));
+
+                    nextSurahCacheRef.current = {
+                        surah: { ...surah, ...metaData.data },
+                        ayahs: combinedAyahs
+                    };
+                    console.log(`[Prefetch] Successfully pre-fetched Surah ${surah.number} (${getSurahNameTR(surah.number)})`);
+                } catch (e) {
+                    console.error(`[Prefetch] Failed to pre-fetch Surah ${surah.number}:`, e);
+                }
+            };
+
+            // Prefetch next Surah when activeSurah changes
+            useEffect(() => {
+                if (!activeSurah || sortedSurahs.length === 0) return;
+                nextSurahCacheRef.current = null; // Clear previous prefetch cache
+
+                const currentIdx = sortedSurahs.findIndex(s => s.number === activeSurah.number);
+                const nextSurah = (currentIdx !== -1 && currentIdx < sortedSurahs.length - 1) ? sortedSurahs[currentIdx + 1] : null;
+                
+                if (nextSurah) {
+                    const timer = setTimeout(() => {
+                        prefetchSurah(nextSurah);
+                    }, 3000);
+                    return () => clearTimeout(timer);
+                }
+            }, [activeSurah, sortedSurahs]);
 
             // Update Media Metadata
             useEffect(() => {
@@ -1427,8 +1474,8 @@
             // Audio Controls
             const playAyah = (ayah, options = {}) => {
                 const now = Date.now();
-                if (now - lastClickTimeRef.current < 200) return; // Debounce rapid clicks
-                lastClickTimeRef.current = now;
+                if (!options.automatic && now - lastClickTimeRef.current < 200) return; // Debounce rapid clicks only
+                if (!options.automatic) lastClickTimeRef.current = now;
 
                 const audio = audioRef.current;
                 const currentAyahId = audio.__activeAyah?.number;
@@ -1479,20 +1526,44 @@
             };
             playAyahRef.current = playAyah;
 
-            const playNext = useCallback(() => {
+            const playNext = useCallback((options = {}) => {
                 const list = (viewMode === 'playlist_view' && activePlaylist) ? activePlaylist.items : (viewMode === 'search' ? detailedResults : ayahs);
                 const idx = list.findIndex(a => a.number === activeAyah?.number);
 
                 if (idx !== -1 && idx < list.length - 1) {
-                    playAyahRef.current?.(list[idx + 1]);
+                    playAyahRef.current?.(list[idx + 1], { automatic: options.automatic });
                 } else if (idx === list.length - 1 && repeatMode === 'all') {
-                    playAyahRef.current?.(list[0], { forcePlay: true });
+                    playAyahRef.current?.(list[0], { forcePlay: true, automatic: options.automatic });
                 } else if (idx === list.length - 1 && repeatMode === 'none') {
                     if (viewMode === 'reader' && activeSurah) {
                         const currentIdx = sortedSurahs.findIndex(s => s.number === activeSurah.number);
                         const nextSurah = (currentIdx !== -1 && currentIdx < sortedSurahs.length - 1) ? sortedSurahs[currentIdx + 1] : null;
-                        if (nextSurah) { autoPlayAfterLoad.current = true; fetchSurah(nextSurah); }
-                        else showToast("Son sureye ulaşıldı.");
+                        if (nextSurah) {
+                            if (nextSurahCacheRef.current && nextSurahCacheRef.current.surah.number === nextSurah.number) {
+                                // Instant transition! No network latency.
+                                const cached = nextSurahCacheRef.current;
+                                nextSurahCacheRef.current = null; // Consume cache
+
+                                // 1. Synchronously set the new state
+                                setAyahs(cached.ayahs);
+                                setActiveSurah(cached.surah);
+                                
+                                // 2. Synchronously start playing the first ayah of the new surah
+                                const firstAyah = cached.ayahs[0];
+                                playAyah(firstAyah, { automatic: options.automatic });
+
+                                // 3. Asynchronously update navigation state & hash
+                                setTimeout(() => {
+                                    navigate('reader', { surahNumber: nextSurah.number });
+                                }, 50);
+                            } else {
+                                // Fallback to network fetch if not yet pre-fetched
+                                autoPlayAfterLoad.current = true;
+                                fetchSurah(nextSurah);
+                            }
+                        } else {
+                            showToast("Son sureye ulaşıldı.");
+                        }
                     } else if (viewMode === 'playlist_view') showToast(`Liste bitti: ${activePlaylist?.name}`);
                     else if (viewMode === 'search') showToast("Arama sonuçları bitti.");
                 }
