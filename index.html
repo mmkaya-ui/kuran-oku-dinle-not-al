@@ -2336,7 +2336,7 @@
                                     <h4 className="text-xs font-bold text-amber-700 dark:text-amber-500 flex items-center gap-2"><i className="fa-solid fa-pen-nib"></i> Notunuz</h4>
                                     {localNote && (
                                         <button onClick={() => { saveNote(''); }} className="w-8 h-8 rounded-full flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200/50 dark:border-red-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm" title="Notu sil">
-                                            <i className="fa-solid fa-trash text-sm"></i>
+                                            <i className="fa-solid fa-xmark text-sm"></i>
                                         </button>
                                     )}
                                 </div>
@@ -2930,7 +2930,7 @@
                                                     a.download = `${p.name.replace(/[^a-z0-9]/gi,'_')}.txt`; a.click();
                                                     showToast(`'${p.name}' metin olarak aktarıldı.`);
                                                 }} className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"><i className="fa-solid fa-download text-base"></i></button>
-                                                <button title="Listeyi sil" onClick={(e) => { e.stopPropagation(); setPlaylists(prev => prev.filter(x => x.id !== p.id)); if (activePlaylist?.id === p.id) { setActivePlaylist(null); setViewMode('playlists_list'); } }} className="w-8 h-8 rounded-full flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200/50 dark:border-red-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm"><i className="fa-solid fa-trash text-sm"></i></button>
+                                                <button title="Listeyi sil" onClick={(e) => { e.stopPropagation(); setPlaylists(prev => prev.filter(x => x.id !== p.id)); if (activePlaylist?.id === p.id) { setActivePlaylist(null); setViewMode('playlists_list'); } }} className="w-8 h-8 rounded-full flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200/50 dark:border-red-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm"><i className="fa-solid fa-xmark text-sm"></i></button>
                                             </div>
                                             <h3 className="font-bold text-lg pr-16 dark:text-slate-100">{p.name}</h3>
                                             <p className="text-sm text-gray-500 dark:text-slate-400">{p.items.length} Ayet</p>
@@ -3279,7 +3279,7 @@
                                                             className="w-8 h-8 rounded-full flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200/50 dark:border-red-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm" 
                                                             title="Notu sil"
                                                         >
-                                                            <i className="fa-solid fa-trash text-sm"></i>
+                                                            <i className="fa-solid fa-xmark text-sm"></i>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -3320,7 +3320,7 @@
                                                         className="w-8 h-8 rounded-full flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200/50 dark:border-red-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm" 
                                                         title="Notu sil"
                                                     >
-                                                        <i className="fa-solid fa-trash text-sm"></i>
+                                                        <i className="fa-solid fa-xmark text-sm"></i>
                                                     </button>
                                                 </div>
                                             </div>
