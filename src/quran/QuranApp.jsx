@@ -165,6 +165,11 @@ import { bigCache } from "../lib/storage.js";
             const playAyahRef = useRef(null);
             const nextSurahCacheRef = useRef(null);
             const scrollPositionRef = useRef(0); // Store scroll position when switching views
+            // Tracks whether the current playback chain was started from playlist_view.
+            // Set to true only when the user taps play inside playlist_view;
+            // cleared when the user manually taps play in reader/search view.
+            // This allows playlist order to be preserved even after switching to reader view.
+            const playlistPlaybackRef = useRef(false);
 
             // Reset scroll memory when surah changes
             useEffect(() => {
@@ -771,6 +776,13 @@ import { bigCache } from "../lib/storage.js";
                     return;
                 }
 
+                // Track whether this playback chain originated from playlist_view.
+                // Automatic calls (chain from onEnded / playNext) inherit the current context;
+                // only manual user taps reset or set the flag.
+                if (!options.automatic) {
+                    playlistPlaybackRef.current = (viewMode === 'playlist_view');
+                }
+
                 // 1. Update the Audio element FIRST (no explicit pause() or load() to prevent lockscreen dismissal)
                 const targetSrc = ayah.audio || "";
                 const currentSrc = audio.getAttribute('src');
@@ -876,10 +888,10 @@ import { bigCache } from "../lib/storage.js";
             }, [playAyah]);
 
             const playNext = useCallback((options = {}) => {
-                // Playlist context is determined by activePlaylist being set, NOT viewMode.
-                // This ensures playlist order is respected even when the user switches to reader view
-                // while a playlist is playing.
-                const isPlaylistMode = !!activePlaylist;
+                // Playlist mode is determined by whether playback was *started* from playlist_view,
+                // NOT by which view is currently visible. This ensures playlist order is respected
+                // even when the user switches to reader view while a playlist is playing.
+                const isPlaylistMode = playlistPlaybackRef.current && !!activePlaylist;
                 const list = isPlaylistMode ? activePlaylist.items : (viewMode === 'search' ? detailedResults : ayahs);
                 const idx = list.findIndex(a => a.number === activeAyah?.number);
 
@@ -942,8 +954,8 @@ import { bigCache } from "../lib/storage.js";
             }, [viewMode, activePlaylist, detailedResults, ayahs, activeAyah, repeatMode, activeSurah, sortedSurahs, surahs, showToast, fetchAndPlaySingleAyah]);
 
             const playPrev = useCallback(() => {
-                // Playlist context is determined by activePlaylist being set, NOT viewMode.
-                const isPlaylistMode = !!activePlaylist;
+                // Playlist mode is determined by whether playback was *started* from playlist_view.
+                const isPlaylistMode = playlistPlaybackRef.current && !!activePlaylist;
                 const list = isPlaylistMode ? activePlaylist.items : (viewMode === 'search' ? detailedResults : ayahs);
                 const idx = list.findIndex(a => a.number === activeAyah?.number);
                 // User navigated away from reader/search — play previous ayah without changing view.
