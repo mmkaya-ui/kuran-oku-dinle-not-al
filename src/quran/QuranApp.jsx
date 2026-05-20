@@ -1839,7 +1839,7 @@ import { bigCache } from "../lib/storage.js";
         });
 
         const PlayerBar = () => {
-            const { activeAyah, isPlaying, playAyah, closePlayer, playNext, playPrev, audioRef, playbackRate, setPlaybackRate, repeatMode, setRepeatMode, fetchSurah, surahs, jumpTargetRef, setViewMode, activePlaylist, setActivePlaylist, viewMode, playlistPlaybackRef, playbackPlaylistRef, ayahs, setDisplayLimit, skipDisplayResetRef } = useQuran();
+            const { activeAyah, isPlaying, playAyah, closePlayer, playNext, playPrev, audioRef, playbackRate, setPlaybackRate, repeatMode, setRepeatMode, fetchSurah, surahs, activeSurah, jumpTargetRef, setViewMode, activePlaylist, setActivePlaylist, viewMode, playlistPlaybackRef, playbackPlaylistRef, ayahs, setDisplayLimit, skipDisplayResetRef } = useQuran();
 
             // Local state for high-frequency updates
             const [currentTime, setCurrentTime] = useState(0);
