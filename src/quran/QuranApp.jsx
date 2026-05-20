@@ -1839,7 +1839,7 @@ import { bigCache } from "../lib/storage.js";
         });
 
         const PlayerBar = () => {
-            const { activeAyah, isPlaying, playAyah, closePlayer, playNext, playPrev, audioRef, playbackRate, setPlaybackRate, repeatMode, setRepeatMode, fetchSurah, surahs, jumpTargetRef, setViewMode, activePlaylist, setActivePlaylist, viewMode, playlistPlaybackRef, playbackPlaylistRef } = useQuran();
+            const { activeAyah, isPlaying, playAyah, closePlayer, playNext, playPrev, audioRef, playbackRate, setPlaybackRate, repeatMode, setRepeatMode, fetchSurah, surahs, jumpTargetRef, setViewMode, activePlaylist, setActivePlaylist, viewMode, playlistPlaybackRef, playbackPlaylistRef, ayahs, setDisplayLimit, skipDisplayResetRef } = useQuran();
 
             // Local state for high-frequency updates
             const [currentTime, setCurrentTime] = useState(0);
@@ -1897,6 +1897,17 @@ import { bigCache } from "../lib/storage.js";
                 const targetSurahNum = parseInt(activeAyah.surahNumber);
                 const targetAyahNum = parseInt(activeAyah.numberInSurah);
                 const isSameSurah = !isPlaylistPlayback && activeSurah?.number === targetSurahNum;
+
+                if (isSameSurah) {
+                    const target = ayahs.find(a => a.numberInSurah === targetAyahNum);
+                    if (target) {
+                        const idx = ayahs.indexOf(target);
+                        if (needsViewChange) {
+                            skipDisplayResetRef.current = true;
+                        }
+                        setDisplayLimit(Math.max(idx + 10, 10));
+                    }
+                }
 
                 if (isPlaylistPlayback || isSameSurah) {
                     let attempts = 0;
