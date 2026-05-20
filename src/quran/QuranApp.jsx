@@ -311,7 +311,7 @@ import { bigCache } from "../lib/storage.js";
                         setDisplayLimit(Math.max(idx + 10, 10));
                         setTimeout(() => {
                             setActiveAyah(target);
-                            if (shouldPlay) playAyahRef.current?.(target, { forcePlay: true });
+                            if (shouldPlay) playAyahRef.current?.(target, { forcePlay: true, automatic: true, isAdvance: true });
                         }, 300);
                         return;
                     }
@@ -324,15 +324,15 @@ import { bigCache } from "../lib/storage.js";
                         // Play the ayah AFTER the reference ayah in the newly loaded surah
                         const refIdx = ayahs.findIndex(a => a.numberInSurah === instruction.numberInSurah);
                         const target = refIdx !== -1 && refIdx < ayahs.length - 1 ? ayahs[refIdx + 1] : ayahs[0];
-                        playAyahRef.current?.(target, { automatic: instruction.automatic });
+                        playAyahRef.current?.(target, { automatic: instruction.automatic, isAdvance: true });
                     } else if (instruction.mode === 'prevBefore') {
                         // Play the ayah BEFORE the reference ayah (go to previous in newly loaded surah)
                         const refIdx = ayahs.findIndex(a => a.numberInSurah === instruction.numberInSurah);
                         const target = refIdx > 0 ? ayahs[refIdx - 1] : ayahs[ayahs.length - 1];
-                        playAyahRef.current?.(target);
+                        playAyahRef.current?.(target, { isAdvance: true });
                     } else {
                         // 'fromStart' — default: play first ayet
-                        playAyahRef.current?.(ayahs[0], { automatic: instruction.automatic });
+                        playAyahRef.current?.(ayahs[0], { automatic: instruction.automatic, isAdvance: true });
                     }
                 }
             }, [ayahs]);
@@ -390,7 +390,7 @@ import { bigCache } from "../lib/storage.js";
                             retryCount++;
                             setTimeout(() => {
                                 if (audioRef.current?.__activeAyah && isPlayingRef.current) {
-                                    playAyahRef.current?.(audioRef.current.__activeAyah, { forcePlay: true });
+                                    playAyahRef.current?.(audioRef.current.__activeAyah, { forcePlay: true, automatic: true, isAdvance: true });
                                 }
                             }, 1000 * retryCount);
                         } else if (isPlayingRef.current) {
@@ -788,9 +788,9 @@ import { bigCache } from "../lib/storage.js";
                 }
 
                 // Track whether this playback chain originated from playlist_view.
-                // Automatic calls (chain from onEnded / playNext) inherit the current context;
-                // only manual user taps reset or set the flag.
-                if (!options.automatic) {
+                // Automatic calls (chain from onEnded / playNext) or sequential advances inherit the current context;
+                // only manual user card taps reset or set the flag.
+                if (!options.automatic && !options.isAdvance) {
                     playlistPlaybackRef.current = (viewMode === 'playlist_view');
                 }
 
@@ -899,6 +899,9 @@ import { bigCache } from "../lib/storage.js";
             }, [playAyah]);
 
             const playNext = useCallback((options = {}) => {
+                const actualOptions = (options && typeof options.preventDefault === 'function') ? {} : options;
+                const isAutomatic = actualOptions.automatic || false;
+
                 // Playlist mode is determined by whether playback was *started* from playlist_view,
                 // NOT by which view is currently visible. This ensures playlist order is respected
                 // even when the user switches to reader view while a playlist is playing.
@@ -915,7 +918,7 @@ import { bigCache } from "../lib/storage.js";
                         // Reader/search mode: play next global ayah without changing view
                         const nextGlobalNumber = activeAyah.number + 1;
                         if (nextGlobalNumber <= 6236) { // Last ayah in Quran
-                            fetchAndPlaySingleAyah(nextGlobalNumber, { automatic: options.automatic });
+                            fetchAndPlaySingleAyah(nextGlobalNumber, { automatic: isAutomatic, isAdvance: true });
                         }
                     }
                     // In playlist mode with idx === -1: playlist may still be loading/hydrating;
@@ -924,9 +927,27 @@ import { bigCache } from "../lib/storage.js";
                 }
 
                 if (idx !== -1 && idx < list.length - 1) {
-                    playAyahRef.current?.(list[idx + 1], { automatic: options.automatic });
+                    const nextAyah = list[idx + 1];
+                    if (isPlaylistMode && viewMode === 'reader' && activeSurah && nextAyah.surahNumber !== activeSurah.number) {
+                        const s = surahs.find(x => x.number === nextAyah.surahNumber);
+                        if (s) {
+                            jumpTargetRef.current = { ayahNumber: nextAyah.numberInSurah, shouldPlay: true };
+                            fetchSurah(s);
+                            return;
+                        }
+                    }
+                    playAyahRef.current?.(list[idx + 1], { automatic: isAutomatic, isAdvance: true });
                 } else if (idx === list.length - 1 && repeatMode === 'all') {
-                    playAyahRef.current?.(list[0], { forcePlay: true, automatic: options.automatic });
+                    const firstAyah = list[0];
+                    if (isPlaylistMode && viewMode === 'reader' && activeSurah && firstAyah.surahNumber !== activeSurah.number) {
+                        const s = surahs.find(x => x.number === firstAyah.surahNumber);
+                        if (s) {
+                            jumpTargetRef.current = { ayahNumber: firstAyah.numberInSurah, shouldPlay: true };
+                            fetchSurah(s);
+                            return;
+                        }
+                    }
+                    playAyahRef.current?.(list[0], { forcePlay: true, automatic: isAutomatic, isAdvance: true });
                 } else if (idx === list.length - 1 && repeatMode === 'none') {
                     if (isPlaylistMode) {
                         // Playlist finished — show toast regardless of which view is visible
@@ -946,7 +967,7 @@ import { bigCache } from "../lib/storage.js";
                                 
                                 // 2. Synchronously start playing the first ayah of the new surah
                                 const firstAyah = cached.ayahs[0];
-                                playAyah(firstAyah, { automatic: options.automatic });
+                                playAyah(firstAyah, { automatic: isAutomatic, isAdvance: true });
 
                                 // 3. Asynchronously update navigation state & hash
                                 setTimeout(() => {
@@ -954,7 +975,7 @@ import { bigCache } from "../lib/storage.js";
                                 }, 50);
                             } else {
                                 // Fallback to network fetch if not yet pre-fetched
-                                autoPlayAfterLoad.current = { mode: 'fromStart', automatic: options.automatic };
+                                autoPlayAfterLoad.current = { mode: 'fromStart', automatic: isAutomatic };
                                 fetchSurah(nextSurah);
                             }
                         } else {
@@ -964,7 +985,9 @@ import { bigCache } from "../lib/storage.js";
                 }
             }, [viewMode, activePlaylist, detailedResults, ayahs, activeAyah, repeatMode, activeSurah, sortedSurahs, surahs, showToast, fetchAndPlaySingleAyah]);
 
-            const playPrev = useCallback(() => {
+            const playPrev = useCallback((options = {}) => {
+                const actualOptions = (options && typeof options.preventDefault === 'function') ? {} : options;
+
                 // Playlist mode is determined by whether playback was *started* from playlist_view.
                 const isPlaylistMode = playlistPlaybackRef.current && !!activePlaylist;
                 const list = isPlaylistMode ? activePlaylist.items : (viewMode === 'search' ? detailedResults : ayahs);
@@ -975,13 +998,24 @@ import { bigCache } from "../lib/storage.js";
                     if (!isPlaylistMode) {
                         const prevGlobalNumber = activeAyah.number - 1;
                         if (prevGlobalNumber >= 1) { // First ayah in Quran
-                            fetchAndPlaySingleAyah(prevGlobalNumber, { onlyAudio: false });
+                            fetchAndPlaySingleAyah(prevGlobalNumber, { onlyAudio: false, isAdvance: true });
                         }
                     }
                     return;
                 }
-                if (idx > 0) playAyahRef.current?.(list[idx - 1]);
-            }, [viewMode, activePlaylist, detailedResults, ayahs, activeAyah, fetchAndPlaySingleAyah]);
+                if (idx > 0) {
+                    const prevAyah = list[idx - 1];
+                    if (isPlaylistMode && viewMode === 'reader' && activeSurah && prevAyah.surahNumber !== activeSurah.number) {
+                        const s = surahs.find(x => x.number === prevAyah.surahNumber);
+                        if (s) {
+                            jumpTargetRef.current = { ayahNumber: prevAyah.numberInSurah, shouldPlay: true };
+                            fetchSurah(s);
+                            return;
+                        }
+                    }
+                    playAyahRef.current?.(list[idx - 1], { automatic: actualOptions.automatic || false, isAdvance: true });
+                }
+            }, [viewMode, activePlaylist, detailedResults, ayahs, activeAyah, activeSurah, surahs, fetchAndPlaySingleAyah]);
 
             playNextRef.current = playNext;
             playPrevRef.current = playPrev;
