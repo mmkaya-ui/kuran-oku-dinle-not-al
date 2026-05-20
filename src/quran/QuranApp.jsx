@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useContext, createContext, useMemo, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import DOMPurify from "dompurify";
-import { bigCache } from "../lib/storage.js";
+import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalStorage } from "../lib/storage.js";
 
         // Debounce hook for dynamic search
         const useDebounce = (value, delay) => {
@@ -194,6 +194,7 @@ import { bigCache } from "../lib/storage.js";
             const [darkMode, setDarkMode] = useState(safeStorage.getItem('theme') === 'dark');
             const [sortType, setSortType] = useState(() => { const s = safeStorage.getItem('quran_sortType'); return s === 'revelation' ? 'revelation' : 'mushaf'; });
             const [bookmark, setBookmark] = useState(null);
+            const [storageLoaded, setStorageLoaded] = useState(false);
             const [toastMessage, setToastMessage] = useState("");
             const toastTimerRef = useRef(null);
             const loadingRef = useRef(false);
@@ -570,28 +571,45 @@ import { bigCache } from "../lib/storage.js";
 
             // Load Initial Data & Settings
             useEffect(() => {
-                const savedPlaylists = safeStorage.getItem('quran_playlists');
-                if (savedPlaylists) { try { setPlaylists(JSON.parse(savedPlaylists)); } catch(e) { safeStorage.removeItem('quran_playlists'); } }
+                const initStorageAndBoot = async () => {
+                    try {
+                        await migrateFromLocalStorage();
+                    } catch (e) {
+                        console.warn("Migration failed", e);
+                    }
+                    try {
+                        const savedPlaylists = await dbPlaylists.getAll();
+                        setPlaylists(savedPlaylists);
+                    } catch (e) {
+                        console.error("Failed to load playlists from IndexedDB", e);
+                    }
+                    setStorageLoaded(true);
+                };
+                initStorageAndBoot();
+            }, []);
+
+            useEffect(() => {
+                if (!storageLoaded) return;
 
                 const savedBookmarkRaw = safeStorage.getItem('quran_bookmark');
                 if (savedBookmarkRaw) {
                     let b; try { b = JSON.parse(savedBookmarkRaw); } catch(e) { safeStorage.removeItem('quran_bookmark'); }
                     if (b) {
-                    setBookmark(b);
-                    // Legacy fix for bookmarks
-                    if (b.number && !b.numberInSurah) {
-                        fetchWithRetry(`${API_BASE}/ayah/${b.number}`)
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.code === 200 && data.data) {
-                                    const fixed = { ...b, numberInSurah: data.data.numberInSurah, surah: getSurahNameTR(data.data.surah.number) };
-                                    setBookmark(fixed);
-                                    safeStorage.setItem('quran_bookmark', JSON.stringify(fixed));
-                                }
-                            })
-                            .catch(console.error);
-                    }
-                  } // end if (b)
+                        setBookmark(b);
+                        // Legacy fix for bookmarks
+                        if (b.number && !b.numberInSurah) {
+                            fetchWithRetry(`${API_BASE}/ayah/${b.number}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.code === 200 && data.data) {
+                                        const fixed = { ...b, numberInSurah: data.data.numberInSurah, surah: getSurahNameTR(data.data.surah.number) };
+                                        setBookmark(fixed);
+                                        safeStorage.setItem('quran_bookmark', JSON.stringify(fixed));
+                                    }
+                                })
+                                .catch(console.error);
+                        }
+                    } // end if (b)
                 }
 
                 setLoading(true);
@@ -658,21 +676,17 @@ import { bigCache } from "../lib/storage.js";
                         }
                     })
                     .catch(e => { console.error(e); setLoading(false); showToast('Bağlantı hatası. Sayfayı yenileyiniz.'); });
-
-                // Initial data load handled surahs. Indexing now happens on first search.
-            }, []);
+            }, [storageLoaded]);
 
             const playlistsInitialisedRef = useRef(false);
             useEffect(() => {
+                if (!storageLoaded) return;
                 // Guard: skip only the very first render before storage has been read.
-                // We use a dedicated ref flag rather than checking playlists.length,
-                // because an empty array is a valid state (user cleared all playlists)
-                // and must still be persisted.
                 if (!playlistsInitialisedRef.current) {
                     playlistsInitialisedRef.current = true;
                     return; // skip only the initial mount
                 }
-                // Strip heavy text fields before saving to localStorage to maintain a lightweight storage footprint
+                // Strip heavy text fields before saving to IndexedDB to maintain a lightweight storage footprint
                 const lightweightPlaylists = playlists.map(p => ({  
                     ...p,
                     items: p.items.map(item => ({
@@ -682,8 +696,8 @@ import { bigCache } from "../lib/storage.js";
                         isPartial: true
                     }))
                 }));
-                safeStorage.setItem('quran_playlists', JSON.stringify(lightweightPlaylists));
-            }, [playlists]);
+                dbPlaylists.setAll(lightweightPlaylists).catch(e => console.error("Failed to save playlists to IndexedDB", e));
+            }, [playlists, storageLoaded]);
 
             useEffect(() => {
                 safeStorage.setItem('quran_fontSize', String(fontSize));
@@ -728,17 +742,21 @@ import { bigCache } from "../lib/storage.js";
                         loadingRef.current = true;
                         setLoadingText("Liste detayları güncelleniyor...");
 
-                        try {
-                            const chunkSizes = 5;
-                            const newItemsMap = {};
+                        const chunkSizes = 5;
+                        const newItemsMap = {};
 
-                            for (let i = 0; i < uniquePartials.length; i += chunkSizes) {
-                                const chunk = uniquePartials.slice(i, i + chunkSizes);
-                                const matches = chunk.map(p => ({ surah: { number: p.surahNumber }, numberInSurah: p.numberInSurah }));
+                        for (let i = 0; i < uniquePartials.length; i += chunkSizes) {
+                            const chunk = uniquePartials.slice(i, i + chunkSizes);
+                            const matches = chunk.map(p => ({ surah: { number: p.surahNumber }, numberInSurah: p.numberInSurah }));
+                            try {
                                 const details = await fetchDetailsForMatches(matches);
                                 details.forEach(d => { newItemsMap[d.number] = d; });
+                            } catch (chunkErr) {
+                                console.warn("[Hydration] Failed to fetch chunk", chunkErr);
                             }
+                        }
 
+                        try {
                             const updater = (list) => list.map(item => {
                                 if (newItemsMap[item.number]) {
                                     return newItemsMap[item.number];
@@ -770,6 +788,54 @@ import { bigCache } from "../lib/storage.js";
                     hydrate();
                 }
             }, [activePlaylist]);
+
+            // Background Offline Audio Prefetch Utility
+            const prefetchAudio = async (ayah) => {
+                if (!ayah || !ayah.audio) return;
+                try {
+                    const cache = await caches.open('quran-audio-v28');
+                    const audioUrl = ayah.audio;
+                    // Check if already cached
+                    const cachedResponse = await cache.match(audioUrl);
+                    if (!cachedResponse) {
+                        const res = await fetch(audioUrl);
+                        if (res.status === 200) {
+                            await cache.put(audioUrl, res);
+                        }
+                    }
+                } catch (e) {
+                    // Fail silently in background
+                }
+            };
+
+            // Trigger background prefetch for current and next 2 tracks whenever activeAyah changes
+            useEffect(() => {
+                if (!activeAyah) return;
+
+                // 1. Prefetch the active Ayah itself
+                prefetchAudio(activeAyah);
+
+                // 2. Determine the next 2 Ayahs to prefetch
+                const nextTracks = [];
+                if (playlistPlaybackRef.current && playbackPlaylistRef.current) {
+                    const items = playbackPlaylistRef.current.items;
+                    const idx = items.findIndex(item => Number(item.number) === Number(activeAyah.number));
+                    if (idx !== -1) {
+                        if (idx + 1 < items.length) nextTracks.push(items[idx + 1]);
+                        if (idx + 2 < items.length) nextTracks.push(items[idx + 2]);
+                    }
+                } else if (ayahs && ayahs.length > 0) {
+                    const idx = ayahs.findIndex(item => Number(item.number) === Number(activeAyah.number));
+                    if (idx !== -1) {
+                        if (idx + 1 < ayahs.length) nextTracks.push(ayahs[idx + 1]);
+                        if (idx + 2 < ayahs.length) nextTracks.push(ayahs[idx + 2]);
+                    }
+                }
+
+                nextTracks.forEach(track => {
+                    if (track) prefetchAudio(track);
+                });
+            }, [activeAyah, ayahs]);
 
             // Audio Controls
             const playAyah = (ayah, options = {}) => {
@@ -1305,22 +1371,41 @@ import { bigCache } from "../lib/storage.js";
             };
 
             // Re-sort search results when sortType changes
-            // Use setRawMatches functional updater to avoid stale closure over rawMatches
             useEffect(() => {
                 if (viewMode !== 'search') return;
                 setRawMatches(prev => {
                     if (prev.length === 0) return prev;
-                    const sorted = sortMatches(prev, sortType);
-                    setDetailedResults([]);
-                    (async () => {
-                        setLoadingText("Sıralama güncelleniyor...");
-                        const details = await fetchDetailsForMatches(sorted.slice(0, 5));
-                        setDetailedResults(details);
-                        setLoadingText("");
-                    })();
-                    return sorted;
+                    return sortMatches(prev, sortType);
                 });
             }, [sortType]);
+
+            // Fetch details for top search matches whenever rawMatches or sortType changes
+            useEffect(() => {
+                if (viewMode !== 'search' || rawMatches.length === 0) return;
+                
+                let active = true;
+                const fetchTopDetails = async () => {
+                    setLoadingText("Sıralama güncelleniyor...");
+                    try {
+                        const topMatches = rawMatches.slice(0, 5);
+                        const details = await fetchDetailsForMatches(topMatches);
+                        if (active) {
+                            setDetailedResults(details);
+                        }
+                    } catch (err) {
+                        console.error("[SearchDetails] Failed to fetch top matches details", err);
+                    } finally {
+                        if (active) {
+                            setLoadingText("");
+                        }
+                    }
+                };
+
+                fetchTopDetails();
+                return () => {
+                    active = false;
+                };
+            }, [rawMatches, sortType, viewMode]);
 
             // Navigation Helper — only pushes history when Quran view is active
             const navigate = (view, extraState = {}) => {
@@ -1443,40 +1528,55 @@ import { bigCache } from "../lib/storage.js";
             useEffect(() => {
                 let cancelled = false;
                 const noteKey = `quran_note_${ayahData.surahNumber}_${ayahData.numberInSurah}`;
-                const saved = safeStorage.getItem(noteKey);
-                if (!cancelled) {
-                    if (saved) {
-                        try {
-                            const parsed = JSON.parse(saved);
-                            setLocalNote(parsed.text || saved);
-                        } catch {
-                            setLocalNote(saved);
+                const loadNote = async () => {
+                    try {
+                        const saved = await dbNotes.get(noteKey);
+                        if (cancelled) return;
+                        if (saved) {
+                            if (typeof saved === 'object' && saved !== null) {
+                                setLocalNote(saved.text || JSON.stringify(saved));
+                            } else {
+                                try {
+                                    const parsed = JSON.parse(saved);
+                                    setLocalNote(parsed.text || saved);
+                                } catch {
+                                    setLocalNote(saved);
+                                }
+                            }
+                        } else {
+                            setLocalNote(""); // Reset when no note exists for this ayah
                         }
-                    } else {
-                        setLocalNote(""); // Reset when no note exists for this ayah
+                    } catch (err) {
+                        console.error("Failed to load note from IndexedDB", err);
+                        if (!cancelled) setLocalNote("");
                     }
-                }
+                };
+                loadNote();
                 return () => { cancelled = true; };
             }, [ayahData.surahNumber, ayahData.numberInSurah]);
 
-            const saveNote = (val) => {
+            const saveNote = async (val) => {
                 setLocalNote(val);
                 const noteKey = `quran_note_${ayahData.surahNumber}_${ayahData.numberInSurah}`;
                 
-                if (val.trim()) {
-                    // Store full ayah data + note text to avoid API calls in MyNotesView
-                    const noteData = {
-                        text: val,
-                        surahNumber: ayahData.surahNumber,
-                        numberInSurah: ayahData.numberInSurah,
-                        surahName: ayahData.surahName,
-                        number: ayahData.number,
-                        savedAt: Date.now()
-                    };
-                    
-                    safeStorage.setItem(noteKey, JSON.stringify(noteData));
-                } else {
-                    safeStorage.removeItem(noteKey);
+                try {
+                    if (val.trim()) {
+                        // Store full ayah data + note text to avoid API calls in MyNotesView
+                        const noteData = {
+                            text: val,
+                            surahNumber: ayahData.surahNumber,
+                            numberInSurah: ayahData.numberInSurah,
+                            surahName: ayahData.surahName,
+                            number: ayahData.number,
+                            savedAt: Date.now()
+                        };
+                        
+                        await dbNotes.set(noteKey, noteData);
+                    } else {
+                        await dbNotes.remove(noteKey);
+                    }
+                } catch (e) {
+                    console.error("Failed to save note to IndexedDB", e);
                 }
             };
 
@@ -2081,80 +2181,82 @@ import { bigCache } from "../lib/storage.js";
                     const details = {};
                     const toHydrate = [];
 
-                    // Use safeStorage-safe enumeration
-                    let storageKeys = [];
+                    let dbEntries = [];
                     try {
-                        for (let i = 0; i < localStorage.length; i++) {
-                            const k = localStorage.key(i);
-                            if (k) storageKeys.push(k);
-                        }
-                    } catch (e) { /* localStorage blocked in private mode */ }
+                        dbEntries = await dbNotes.getAll();
+                    } catch (e) {
+                        console.error("Failed to load notes from DB", e);
+                    }
 
-                    for (const key of storageKeys) {
+                    for (const { key, value: noteDataRaw } of dbEntries) {
                         if (!key.startsWith('quran_note_')) continue;
-                        {
-                            const noteDataRaw = safeStorage.getItem(key);
-                            const match = key.match(/quran_note_(\d+)_(\d+)/);
+                        const match = key.match(/quran_note_(\d+)_(\d+)/);
+                        
+                        if (match && noteDataRaw) {
+                            const surahNum = parseInt(match[1]);
+                            const ayahNum = parseInt(match[2]);
                             
-                            if (match && noteDataRaw) {
-                                const surahNum = parseInt(match[1]);
-                                const ayahNum = parseInt(match[2]);
-                                
-                                try {
-                                    const noteData = JSON.parse(noteDataRaw);
-                                    
-                                    // Handle both new lightweight structure and legacy stored structure
-                                    const noteText = noteData.text || noteDataRaw;
-                                    const surahName = noteData.surahName || getSurahNameTR(surahNum);
-                                    
-                                    loadedNotes.push({
-                                        key,
-                                        surahNum,
-                                        ayahNum,
-                                        surahName,
-                                        noteText
-                                    });
-                                    
-                                    if (noteData.arabicText) {
-                                        // Legacy structure: use cached text directly
-                                        details[key] = {
-                                            number: noteData.number,
-                                            numberInSurah: noteData.numberInSurah,
-                                            surahName: noteData.surahName,
-                                            surahNumber: noteData.surahNumber,
-                                            text: noteData.arabicText,
-                                            transliteration: noteData.transliteration,
-                                            diyanet: noteData.diyanet,
-                                            yazir: noteData.yazir,
-                                            ates: noteData.ates,
-                                            ozturk: noteData.ozturk,
-                                            yildirim: noteData.yildirim,
-                                            yuksel: noteData.yuksel,
-                                            audio: noteData.audio
-                                        };
-                                    } else {
-                                        // New structure: queue for RAM-based background hydration
-                                        toHydrate.push({
-                                            key,
-                                            surah: { number: surahNum },
-                                            numberInSurah: ayahNum
-                                        });
+                            try {
+                                let noteData = noteDataRaw;
+                                if (typeof noteData === 'string') {
+                                    try {
+                                        noteData = JSON.parse(noteData);
+                                    } catch {
+                                        noteData = { text: noteDataRaw };
                                     }
-                                } catch {
-                                    // Plain text legacy fallback
-                                    loadedNotes.push({
-                                        key,
-                                        surahNum,
-                                        ayahNum,
-                                        surahName: getSurahNameTR(surahNum),
-                                        noteText: noteDataRaw
-                                    });
+                                }
+                                
+                                // Handle both new lightweight structure and legacy stored structure
+                                const noteText = noteData.text || (typeof noteDataRaw === 'string' ? noteDataRaw : JSON.stringify(noteDataRaw));
+                                const surahName = noteData.surahName || getSurahNameTR(surahNum);
+                                
+                                loadedNotes.push({
+                                    key,
+                                    surahNum,
+                                    ayahNum,
+                                    surahName,
+                                    noteText
+                                });
+                                
+                                if (noteData.arabicText) {
+                                    // Legacy structure: use cached text directly
+                                    details[key] = {
+                                        number: noteData.number,
+                                        numberInSurah: noteData.numberInSurah,
+                                        surahName: noteData.surahName,
+                                        surahNumber: noteData.surahNumber,
+                                        text: noteData.arabicText,
+                                        transliteration: noteData.transliteration,
+                                        diyanet: noteData.diyanet,
+                                        yazir: noteData.yazir,
+                                        ates: noteData.ates,
+                                        ozturk: noteData.ozturk,
+                                        yildirim: noteData.yildirim,
+                                        yuksel: noteData.yuksel,
+                                        audio: noteData.audio
+                                    };
+                                } else {
+                                    // New structure: queue for RAM-based background hydration
                                     toHydrate.push({
                                         key,
                                         surah: { number: surahNum },
                                         numberInSurah: ayahNum
                                     });
                                 }
+                            } catch {
+                                // Plain text legacy fallback
+                                loadedNotes.push({
+                                    key,
+                                    surahNum,
+                                    ayahNum,
+                                    surahName: getSurahNameTR(surahNum),
+                                    noteText: typeof noteDataRaw === 'string' ? noteDataRaw : JSON.stringify(noteDataRaw)
+                                });
+                                toHydrate.push({
+                                    key,
+                                    surah: { number: surahNum },
+                                    numberInSurah: ayahNum
+                                });
                             }
                         }
                     }
@@ -2199,8 +2301,12 @@ import { bigCache } from "../lib/storage.js";
             // Load notes once on mount; also callable by importNotes for in-place refresh
             useEffect(() => { loadNotesFromStorage(); }, []);
 
-            const deleteNote = (key) => {
-                safeStorage.removeItem(key);
+            const deleteNote = async (key) => {
+                try {
+                    await dbNotes.remove(key);
+                } catch (e) {
+                    console.error("Failed to delete note", e);
+                }
                 setNotes(prev => prev.filter(n => n.key !== key));
                 showToast('Not silindi.');
             };
@@ -2213,41 +2319,56 @@ import { bigCache } from "../lib/storage.js";
                 }
             };
 
-            const exportNotes = () => {
+            const exportNotes = async () => {
                 if (notes.length === 0) { showToast('Kaydedilmiş not yok.'); return; }
-                // Export the full raw stored value (already JSON string) for lossless round-trip
-                const notesObj = {};
-                notes.forEach(n => {
-                    const raw = safeStorage.getItem(n.key);
-                    notesObj[n.key] = raw !== null ? raw : n.noteText;
-                });
-                const blob = new Blob([JSON.stringify(notesObj, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url;
-                a.download = `kuran-notlar-${new Date().toISOString().slice(0,10)}.json`; a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 60000);
-                showToast(`${notes.length} not yedeklendi.`);
+                try {
+                    const dbEntries = await dbNotes.getAll();
+                    const notesObj = {};
+                    dbEntries.forEach(n => {
+                        notesObj[n.key] = n.value;
+                    });
+                    const blob = new Blob([JSON.stringify(notesObj, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url;
+                    a.download = `kuran-notlar-${new Date().toISOString().slice(0,10)}.json`; a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    showToast(`${notes.length} not yedeklendi.`);
+                } catch (e) {
+                    console.error("Failed to export notes", e);
+                    showToast('Yedekleme sırasında hata oluştu.');
+                }
             };
 
             const importNotes = (e) => {
                 const file = e.target.files?.[0]; if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (ev) => {
+                reader.onload = async (ev) => {
                     try {
                         const data = JSON.parse(ev.target.result);
                         let count = 0;
-                        Object.entries(data).forEach(([k, v]) => {
+                        const promises = [];
+                        for (const [k, v] of Object.entries(data)) {
                             if (k.startsWith('quran_note_')) {
-                                // v may be a raw JSON string (new format) or a plain string (legacy)
-                                const toStore = typeof v === 'string' ? v : JSON.stringify(v);
-                                safeStorage.setItem(k, toStore);
+                                let valToStore = v;
+                                if (typeof v === 'string') {
+                                    try {
+                                        valToStore = JSON.parse(v);
+                                    } catch {
+                                        valToStore = v;
+                                    }
+                                }
+                                promises.push(dbNotes.set(k, valToStore));
                                 count++;
                             }
-                        });
+                        }
+                        await Promise.all(promises);
                         // Reload notes in-memory without requiring a page refresh
-                        loadNotesFromStorage();
+                        await loadNotesFromStorage();
                         showToast(`${count} not yüklendi.`);
-                    } catch { showToast('Geçersiz dosya formatı.'); }
+                    } catch (err) { 
+                        console.error("Import notes failed", err);
+                        showToast('Geçersiz dosya formatı.'); 
+                    }
                 };
                 reader.onerror = () => showToast('Dosya okunamadı.');
                 reader.readAsText(file);
@@ -2478,7 +2599,7 @@ import { bigCache } from "../lib/storage.js";
                 loading, loadingText, fetchError, playlists, activePlaylist, setActivePlaylist, setPlaylists,
                 selectedAyahs, setSelectedAyahs, bookmark, fetchSurah, surahs, sortType, setSortType, sortedSurahs,
                 activeAyah, isPlaying, displayLimit, setDisplayLimit, jumpTargetRef, skipDisplayResetRef, closePlayer, showToast, scrollPositionRef,
-                playlistPlaybackRef
+                playlistPlaybackRef, playbackPlaylistRef
             } = useQuran();
 
             // Initialize lastScrolledAyah to activeAyah.number if returning to a saved scroll position,
@@ -2838,13 +2959,51 @@ import { bigCache } from "../lib/storage.js";
                                                     try {
                                                         const data = JSON.parse(ev.target.result);
                                                         if (!Array.isArray(data)) { showToast('Geçersiz dosya formatı.'); return; }
+                                                        
+                                                        // Validate and normalize schema
+                                                        const validatedPlaylists = [];
+                                                        for (const p of data) {
+                                                            if (!p || typeof p !== 'object') continue;
+                                                            if (!p.id || typeof p.name !== 'string' || !p.name.trim()) continue;
+                                                            
+                                                            const rawItems = Array.isArray(p.items) ? p.items : [];
+                                                            const cleanItems = rawItems.map(item => {
+                                                                if (!item || typeof item !== 'object') return null;
+                                                                const num = parseInt(item.number);
+                                                                if (isNaN(num)) return null;
+                                                                return {
+                                                                    number: num,
+                                                                    surahNumber: parseInt(item.surahNumber || item.surah?.number || 0) || null,
+                                                                    numberInSurah: parseInt(item.numberInSurah) || null,
+                                                                    isPartial: item.isPartial !== undefined ? !!item.isPartial : true,
+                                                                    text: typeof item.text === 'string' ? item.text : undefined,
+                                                                    audio: typeof item.audio === 'string' ? item.audio : undefined,
+                                                                    diyanet: typeof item.diyanet === 'string' ? item.diyanet : undefined
+                                                                };
+                                                            }).filter(Boolean);
+
+                                                            validatedPlaylists.push({
+                                                                id: String(p.id),
+                                                                name: p.name.trim(),
+                                                                items: cleanItems
+                                                            });
+                                                        }
+
+                                                        if (validatedPlaylists.length === 0) {
+                                                            showToast('Yüklenecek geçerli bir liste bulunamadı.');
+                                                            return;
+                                                        }
+
                                                         setPlaylists(prev => {
                                                             const existingIds = new Set(prev.map(p => p.id));
-                                                            const newOnes = data.filter(p => !existingIds.has(p.id));
+                                                            const newOnes = validatedPlaylists.filter(p => !existingIds.has(p.id));
                                                             showToast(`${newOnes.length} liste yedeğinden yüklendi.`);
                                                             return [...prev, ...newOnes];
                                                         });
-                                                    } catch { showToast('Geçersiz dosya formatı.'); }
+                                                    } catch (err) { 
+                                                        console.error("Playlist import parse error", err);
+                                                        showToast('Geçersiz dosya formatı.'); 
+                                                    }
                                                 };
                                                 reader.onerror = () => showToast('Dosya okunamadı.');
                                                 reader.readAsText(file);
@@ -2874,7 +3033,7 @@ import { bigCache } from "../lib/storage.js";
                                                     setTimeout(() => URL.revokeObjectURL(url), 60000);
                                                     showToast(`'${p.name}' metin olarak aktarıldı.`);
                                                 }} className="w-9 h-9 flex items-center justify-center rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 border border-emerald-200/50 dark:border-emerald-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm"><i className="fa-solid fa-download text-sm"></i></button>
-                                                <button title="Listeyi sil" onClick={(e) => { e.stopPropagation(); setPlaylists(prev => prev.filter(x => x.id !== p.id)); if (activePlaylist?.id === p.id) { setActivePlaylist(null); setViewMode('playlists_list'); } }} className="w-8 h-8 rounded-full flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200/50 dark:border-red-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm"><i className="fa-solid fa-eraser text-sm"></i></button>
+                                                <button title="Listeyi sil" onClick={(e) => { e.stopPropagation(); if (playbackPlaylistRef.current?.id === p.id) { closePlayer(); } setPlaylists(prev => prev.filter(x => x.id !== p.id)); if (activePlaylist?.id === p.id) { setActivePlaylist(null); setViewMode('playlists_list'); } }} className="w-8 h-8 rounded-full flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200/50 dark:border-red-800/30 hover:scale-105 active:scale-95 transition-all shadow-sm"><i className="fa-solid fa-eraser text-sm"></i></button>
                                             </div>
                                             <h3 className="font-bold text-lg pr-16 dark:text-slate-100">{p.name}</h3>
                                             <p className="text-sm text-gray-500 dark:text-slate-400">{p.items.length} Ayet</p>
