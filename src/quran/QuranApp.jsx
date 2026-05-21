@@ -2050,7 +2050,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             if (!activeAyah) return null;
 
             return (
-                <div role="region" aria-label="Ses çalar" className="absolute bottom-2 left-2 right-2 md:left-1/2 md:right-auto transform md:-translate-x-1/2 md:w-[600px] bg-white dark:bg-black border border-emerald-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-2 md:pt-1.5 md:pb-2 md:px-3 z-50 flex flex-col gap-1 md:gap-1.5 transition-transform duration-300 pb-[calc(env(safe-area-inset-bottom)+8px)] md:pb-[calc(env(safe-area-inset-bottom)+4px)]">
+                <div role="region" aria-label="Ses çalar" className="fixed md:absolute bottom-2 left-2 right-2 md:left-1/2 md:right-auto transform md:-translate-x-1/2 md:w-[600px] bg-white dark:bg-black border border-emerald-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-2 md:pt-1.5 md:pb-2 md:px-3 z-50 flex flex-col gap-1 md:gap-1.5 transition-transform duration-300 pb-[calc(env(safe-area-inset-bottom)+8px)] md:pb-[calc(env(safe-area-inset-bottom)+4px)]">
                     
                     {/* Row 1: Title & Close Button (Unified for both Mobile & Desktop) */}
                     <div className="flex items-center justify-between px-2 pt-0.5 md:pt-0">
@@ -2608,17 +2608,33 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
             // Smart Scroll Detection - Hide/Show Mobile Surah Select on scroll
             const [showMobileSelect, setShowMobileSelect] = useState(true);
+            const [headerHeight, setHeaderHeight] = useState(0);
             const lastScrollY = useRef(0);
             const ticking = useRef(false);
 
+            // Measure header height on mount, resize, and viewMode change
+            useEffect(() => {
+                const measureHeader = () => {
+                    const header = document.querySelector('#quran-root header');
+                    if (header) setHeaderHeight(header.offsetHeight);
+                };
+                measureHeader();
+                window.addEventListener('resize', measureHeader);
+                const timer = setTimeout(measureHeader, 100);
+                return () => {
+                    window.removeEventListener('resize', measureHeader);
+                    clearTimeout(timer);
+                };
+            }, [viewMode]);
+
             useEffect(() => {
                 const mainScroll = document.getElementById('main-scroll');
-                if (!mainScroll) return;
 
                 const handleScroll = () => {
                     if (!ticking.current) {
                         requestAnimationFrame(() => {
-                            const currentScrollY = mainScroll.scrollTop;
+                            // On mobile, window.scrollY is the scroll position. On desktop, mainScroll.scrollTop is the scroll position.
+                            const currentScrollY = window.innerWidth < 768 ? window.scrollY : (mainScroll ? mainScroll.scrollTop : 0);
                             const scrollDelta = currentScrollY - lastScrollY.current;
 
                             // Show when scrolling up, hide when scrolling down
@@ -2636,8 +2652,20 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                     }
                 };
 
-                mainScroll.addEventListener('scroll', handleScroll, { passive: true });
-                return () => mainScroll.removeEventListener('scroll', handleScroll);
+                // Listen to window scroll (for mobile)
+                window.addEventListener('scroll', handleScroll, { passive: true });
+                
+                // Listen to mainScroll scroll (for desktop)
+                if (mainScroll) {
+                    mainScroll.addEventListener('scroll', handleScroll, { passive: true });
+                }
+
+                return () => {
+                    window.removeEventListener('scroll', handleScroll);
+                    if (mainScroll) {
+                        mainScroll.removeEventListener('scroll', handleScroll);
+                    }
+                };
             }, []);
 
             // Sure değişince scroll hafızasını sıfırla
@@ -2807,7 +2835,17 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
                         {/* Mobile Surah Select - Smart hide/show on scroll */}
                         {!loading && !searching && viewMode === 'reader' && (
-                            <div className={`md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4 transition-transform duration-300 ease-out ${showMobileSelect ? 'translate-y-0 top-0' : '-translate-y-full -top-20'}`}>
+                            <div 
+                                className="md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4"
+                                style={{
+                                    top: `${headerHeight}px`,
+                                    transform: showMobileSelect ? 'translateY(0)' : 'translateY(-100%)',
+                                    opacity: showMobileSelect ? 1 : 0,
+                                    transitionProperty: 'transform, opacity',
+                                    transitionDuration: '300ms',
+                                    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+                                }}
+                            >
                                 <div className="flex-1 relative">
                                     <select
                                         onChange={(e) => {

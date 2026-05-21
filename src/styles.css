@@ -15,20 +15,64 @@ html {
     background-color: #047857;
     scroll-behavior: smooth;
     /* Pull-to-refresh enabled by default on both Android and iOS */
-    height: 100%;
-    height: -webkit-fill-available;
-    overflow: hidden;
+    height: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 body {
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    height: 100%;
-    height: -webkit-fill-available;
+    height: auto;
     background-color: #f3f4f6;
     color: #0f172a;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#quran-root {
+    overflow: visible !important;
+    height: auto !important;
+}
+
+@media (max-width: 767px) {
+    html, body {
+        height: auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        overscroll-behavior-y: auto !important;
+    }
+
+    #quran-root,
+    #quran-root > div,
+    #quran-root > div > div,
+    #quran-root > div > div > div {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    #main-scroll {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        overflow-y: visible !important;
+    }
+}
+
+@media (min-width: 768px) {
+    html, body {
+        height: 100% !important;
+        height: -webkit-fill-available !important;
+        overflow: hidden !important;
+    }
+    #quran-root {
+        height: 100% !important;
+        overflow: hidden !important;
+    }
 }
 
 .dark body {
