@@ -1,11 +1,9 @@
 /**
  * App entry point.
  * Vite loads this from <script type="module" src="/src/main.js">.
- * Order matters: schedule app wires up window.toggleQuranView used by Quran routing.
  */
 import './styles.css';
 import { migrateFromLocalStorage } from './lib/storage.js';
-import './schedule/index.js';
 import './quran/QuranApp.jsx';
 import { registerServiceWorker } from './sw-register.js';
 

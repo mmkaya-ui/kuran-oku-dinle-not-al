@@ -3099,7 +3099,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             }, [darkMode]);
 
             const goBack = () => {
-                // Hierarchical navigation: nested views -> parent view -> main page
+                // Hierarchical navigation: nested views -> parent view
                 if (viewMode === 'playlist_view') {
                     setViewMode('playlists_list');
                     return;
@@ -3115,8 +3115,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                     setDetailedResults([]);
                     return;
                 }
-                // If in reader or any other mode, go to main page
-                window.toggleQuranView(false);
+                // reader is the root view — no-op
             };
 
             const [playlistModal, setPlaylistModal] = useState(false);
@@ -3214,7 +3213,6 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                 </div>
                             </div>
                             <div className="mb-2 flex items-center gap-3 pr-28">
-                                <button onClick={goBack} aria-label="Ana sayfaya dön" className="bg-emerald-800 p-2 rounded-lg hover:bg-emerald-600 transition h-8 w-8 flex items-center justify-center shrink-0"><i className="fa-solid fa-arrow-left text-sm"></i></button>
                                 <div className="min-w-0">
                                     <h1 className="text-lg font-bold mb-0.5 flex items-center leading-none truncate">
                                         <i className="fa-solid fa-book-open mr-2 text-sm"></i> 
