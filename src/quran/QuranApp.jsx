@@ -2608,20 +2608,8 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
             // Smart Scroll Detection - Hide/Show Mobile Surah Select on scroll
             const [showMobileSelect, setShowMobileSelect] = useState(true);
-            const [headerHeight, setHeaderHeight] = useState(0);
             const lastScrollY = useRef(0);
             const ticking = useRef(false);
-
-            // Measure header height once on mount and on resize
-            useEffect(() => {
-                const measureHeader = () => {
-                    const header = document.querySelector('#quran-root header');
-                    if (header) setHeaderHeight(header.offsetHeight);
-                };
-                measureHeader();
-                window.addEventListener('resize', measureHeader);
-                return () => window.removeEventListener('resize', measureHeader);
-            }, []);
 
             useEffect(() => {
                 const mainScroll = document.getElementById('main-scroll');
@@ -2817,14 +2805,12 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                             </div>
                         )}
 
-                        {/* Mobile Surah Select - Fixed below header, hide on scroll down / show on scroll up */}
+                        {/* Mobile Surah Select - Sticky, hide on scroll down / show on scroll up */}
                         {!loading && !searching && viewMode === 'reader' && (
                             <div
-                                className="md:hidden fixed left-0 w-full z-30 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 px-2 pb-2 pt-1 shadow-sm flex gap-2 transition-transform duration-300 ease-out"
-                                style={{
-                                    top: `${headerHeight}px`,
-                                    transform: showMobileSelect ? 'translateY(0)' : 'translateY(-110%)'
-                                }}
+                                className={`md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 px-2 pb-2 pt-1 shadow-sm flex gap-2 transition-all duration-300 ease-out ${
+                                    showMobileSelect ? 'top-0 translate-y-0 opacity-100' : '-top-20 -translate-y-full opacity-0'
+                                }`}
                             >
                                 <div className="flex-1 relative">
                                     <select
@@ -2854,14 +2840,6 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                     <i className={`fa-solid ${sortType === 'mushaf' ? 'fa-arrow-down-1-9' : 'fa-clock-rotate-left'}`}></i>
                                 </button>
                             </div>
-                        )}
-
-                        {/* Spacer for fixed mobile surah select bar */}
-                        {!loading && !searching && viewMode === 'reader' && (
-                            <div
-                                className="md:hidden transition-all duration-300"
-                                style={{ height: showMobileSelect ? '52px' : '0px' }}
-                            />
                         )}
 
                         {/* Bookmark Prompt */}
