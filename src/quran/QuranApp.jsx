@@ -2608,8 +2608,20 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
             // Smart Scroll Detection - Hide/Show Mobile Surah Select on scroll
             const [showMobileSelect, setShowMobileSelect] = useState(true);
+            const [headerHeight, setHeaderHeight] = useState(0);
             const lastScrollY = useRef(0);
             const ticking = useRef(false);
+
+            // Measure header height once on mount and on resize
+            useEffect(() => {
+                const measureHeader = () => {
+                    const header = document.querySelector('#quran-root header');
+                    if (header) setHeaderHeight(header.offsetHeight);
+                };
+                measureHeader();
+                window.addEventListener('resize', measureHeader);
+                return () => window.removeEventListener('resize', measureHeader);
+            }, []);
 
             useEffect(() => {
                 const mainScroll = document.getElementById('main-scroll');
@@ -2805,9 +2817,15 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                             </div>
                         )}
 
-                        {/* Mobile Surah Select - Smart hide/show on scroll */}
+                        {/* Mobile Surah Select - Fixed below header, hide on scroll down / show on scroll up */}
                         {!loading && !searching && viewMode === 'reader' && (
-                            <div className={`md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4 transition-transform duration-300 ease-out ${showMobileSelect ? 'translate-y-0 top-0' : '-translate-y-full -top-20'}`}>
+                            <div
+                                className="md:hidden fixed left-0 w-full z-30 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 px-2 pb-2 pt-1 shadow-sm flex gap-2 transition-transform duration-300 ease-out"
+                                style={{
+                                    top: `${headerHeight}px`,
+                                    transform: showMobileSelect ? 'translateY(0)' : 'translateY(-110%)'
+                                }}
+                            >
                                 <div className="flex-1 relative">
                                     <select
                                         onChange={(e) => {
@@ -2838,6 +2856,13 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                             </div>
                         )}
 
+                        {/* Spacer for fixed mobile surah select bar */}
+                        {!loading && !searching && viewMode === 'reader' && (
+                            <div
+                                className="md:hidden transition-all duration-300"
+                                style={{ height: showMobileSelect ? '52px' : '0px' }}
+                            />
+                        )}
 
                         {/* Bookmark Prompt */}
                         {showContinueReading && (

@@ -1,8 +1,8 @@
 {
     "id": "/",
-    "name": "Ders Programı ve Notlar",
-    "short_name": "Ders Programı",
-    "description": "Kuran okuma, dinleme, arama ve ders programı uygulaması.",
+    "name": "Kur'an Talebesi",
+    "short_name": "Kur'an",
+    "description": "Oku, Dinle, Tefekkür Et — Kuran okuma, dinleme, arama ve not alma uygulaması.",
     "lang": "tr",
     "start_url": "./index.html",
     "scope": "./",
