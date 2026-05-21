@@ -3226,7 +3226,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                             <i className="fa-solid fa-circle-question text-xs"></i>
                                         </button>
                                     </h1>
-                                    <p className="text-emerald-100 text-[11px] opacity-90 leading-none">Oku, Dinle, Araştır</p>
+                                    <p className="text-emerald-100 text-[11px] opacity-90 leading-none">Oku, Dinle, Tefekkür Et</p>
                                 </div>
                             </div>
                             <div className="flex gap-2 items-center mb-2">
