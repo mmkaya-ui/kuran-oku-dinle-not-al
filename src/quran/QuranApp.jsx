@@ -2626,33 +2626,6 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             // to bypass the initial smooth auto-scroll and jump instantly.
             const lastScrolledAyah = useRef(scrollPositionRef.current > 0 ? activeAyah?.number : null);
 
-            // Dinamik Header Yüksekliği Ölçümü
-            const [headerHeight, setHeaderHeight] = useState(112); // Fallback to 112px
-            const [isMobile, setIsMobile] = useState(false);
-
-            useEffect(() => {
-                const handleResize = () => {
-                    setIsMobile(window.innerWidth < 768);
-                };
-                handleResize();
-                window.addEventListener('resize', handleResize);
-                return () => window.removeEventListener('resize', handleResize);
-            }, []);
-
-            useEffect(() => {
-                const headerEl = document.querySelector('header');
-                if (headerEl) {
-                    setHeaderHeight(headerEl.offsetHeight);
-                    const resizeObserver = new ResizeObserver(entries => {
-                        for (let entry of entries) {
-                            setHeaderHeight(entry.target.offsetHeight);
-                        }
-                    });
-                    resizeObserver.observe(headerEl);
-                    return () => resizeObserver.disconnect();
-                }
-            }, []);
-
             // Smart Scroll Detection - Hide/Show Mobile Surah Select on scroll
             const [showMobileSelect, setShowMobileSelect] = useState(true);
             const lastScrollY = useRef(0);
@@ -2660,12 +2633,12 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
             useEffect(() => {
                 const mainScroll = document.getElementById('main-scroll');
+                if (!mainScroll) return;
 
                 const handleScroll = () => {
                     if (!ticking.current) {
                         requestAnimationFrame(() => {
-                            const isMobile = window.innerWidth < 768;
-                            const currentScrollY = isMobile ? window.scrollY : (mainScroll ? mainScroll.scrollTop : 0);
+                            const currentScrollY = mainScroll.scrollTop;
                             const scrollDelta = currentScrollY - lastScrollY.current;
 
                             // Show when scrolling up, hide when scrolling down
@@ -2683,15 +2656,8 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                     }
                 };
 
-                window.addEventListener('scroll', handleScroll, { passive: true });
-                if (mainScroll) {
-                    mainScroll.addEventListener('scroll', handleScroll, { passive: true });
-                }
-
-                return () => {
-                    window.removeEventListener('scroll', handleScroll);
-                    if (mainScroll) mainScroll.removeEventListener('scroll', handleScroll);
-                };
+                mainScroll.addEventListener('scroll', handleScroll, { passive: true });
+                return () => mainScroll.removeEventListener('scroll', handleScroll);
             }, []);
 
             // Sure değişince scroll hafızasını sıfırla
@@ -2834,18 +2800,9 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 (bookmarkInCurrentSurah && playerInactive)
             );
 
-            // Dynamic top padding calculation for mobile to avoid fixed header overlaps
-            const hasMobileSelect = !loading && !searching && viewMode === 'reader';
-            const mobileHeaderOffset = headerHeight + (hasMobileSelect ? 48 : 0);
 
             return (
-                <main 
-                    className="flex-1 overflow-y-visible md:overflow-y-auto ios-scroll bg-slate-100 dark:bg-black p-4 md:p-8 md:pt-8 scroll-smooth transition-colors duration-300" 
-                    id="main-scroll"
-                    style={{
-                        paddingTop: isMobile ? `${mobileHeaderOffset}px` : undefined
-                    }}
-                >
+                <main className="flex-1 overflow-y-auto ios-scroll bg-slate-100 dark:bg-black p-4 md:p-8 pt-4 md:pt-8 scroll-smooth transition-colors duration-300" id="main-scroll">
                     <div className="max-w-4xl mx-auto pb-32">
                         {/* Minimal loading indicator - just top spinner, no blocking overlay */}
                         {loading && (
@@ -2871,13 +2828,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
                         {/* Mobile Surah Select - Smart hide/show on scroll */}
                         {!loading && !searching && viewMode === 'reader' && (
-                            <div 
-                                className={`md:hidden fixed left-0 w-full z-40 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-2 px-2 pb-2 shadow-sm flex gap-2 transition-transform duration-300 ease-out`}
-                                style={{
-                                    top: `${headerHeight}px`,
-                                    transform: showMobileSelect ? 'translateY(0)' : `translateY(-${headerHeight + 20}px)`,
-                                }}
-                            >
+                            <div className={`md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4 transition-transform duration-300 ease-out ${showMobileSelect ? 'translate-y-0 top-0' : '-translate-y-full -top-20'}`}>
                                 <div className="flex-1 relative">
                                     <select
                                         onChange={(e) => {
@@ -3268,7 +3219,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         </div>
                     )}
 
-                    <header className="bg-emerald-700 dark:bg-emerald-900 text-white px-4 pb-2 shadow-lg z-50 fixed md:sticky top-0 left-0 w-full border-b border-transparent dark:border-emerald-800">
+                    <header className="bg-emerald-700 dark:bg-emerald-900 text-white px-4 pb-2 shadow-lg z-20 sticky top-0 border-b border-transparent dark:border-emerald-800">
                         <div className="max-w-md mx-auto relative pt-2">
                             {/* Simplified header - Material Design style */}
                             <div className="absolute right-0 top-1.5 flex items-center gap-1">
