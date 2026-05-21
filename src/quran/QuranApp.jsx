@@ -3216,7 +3216,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                 <div className="min-w-0">
                                     <h1 className="text-lg font-bold mb-0.5 flex items-center leading-none truncate">
                                         <i className="fa-solid fa-book-open mr-2 text-sm"></i> 
-                                        Kuran Rehberi
+                                        Kur'an Talebesi
                                         <button 
                                             onClick={() => setShowHelp(true)} 
                                             aria-label="Kullanım rehberi" 
