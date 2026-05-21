@@ -15,64 +15,20 @@ html {
     background-color: #047857;
     scroll-behavior: smooth;
     /* Pull-to-refresh enabled by default on both Android and iOS */
-    height: auto;
-    overflow-y: auto;
-    overflow-x: hidden;
+    height: 100%;
+    height: -webkit-fill-available;
+    overflow: hidden;
 }
 
 body {
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    height: auto;
+    height: 100%;
+    height: -webkit-fill-available;
     background-color: #f3f4f6;
     color: #0f172a;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-#quran-root {
-    overflow: visible !important;
-    height: auto !important;
-}
-
-@media (max-width: 767px) {
-    html, body {
-        height: auto !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        overscroll-behavior-y: auto !important;
-    }
-
-    #quran-root,
-    #quran-root > div,
-    #quran-root > div > div,
-    #quran-root > div > div > div {
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        overflow: visible !important;
-    }
-
-    #main-scroll {
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        overflow: visible !important;
-        overflow-y: visible !important;
-    }
-}
-
-@media (min-width: 768px) {
-    html, body {
-        height: 100% !important;
-        height: -webkit-fill-available !important;
-        overflow: hidden !important;
-    }
-    #quran-root {
-        height: 100% !important;
-        overflow: hidden !important;
-    }
+    overflow: hidden;
 }
 
 .dark body {
@@ -133,4 +89,28 @@ header {
     top: 0;
     z-index: 50;
     padding-top: env(safe-area-inset-top);
+}
+
+/* Enable viewport-level scrolling on mobile for pull-to-refresh */
+@media (max-width: 767px) {
+    html {
+        height: auto !important;
+        overflow: auto !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    body {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow: auto !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #quran-root {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow: visible !important;
+    }
 }

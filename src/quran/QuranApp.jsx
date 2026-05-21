@@ -271,7 +271,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             const prevViewModeRef = useRef(null);
             useEffect(() => {
                 const mainScroll = document.getElementById('main-scroll');
-                if (!mainScroll) return;
+                const isMobile = window.innerWidth < 768;
 
                 if (viewMode === 'reader') {
                     const prev = prevViewModeRef.current;
@@ -280,20 +280,40 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                     const shouldRestore = prev === 'search' && scrollPositionRef.current > 0;
                     if (shouldRestore) {
                         setTimeout(() => {
-                            mainScroll.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' });
+                            if (isMobile) {
+                                window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' });
+                            } else if (mainScroll) {
+                                mainScroll.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' });
+                            }
                         }, 50);
                     } else {
                         // playlist/notes'tan geliyorsak veya ilk yuklemede basa don
-                        mainScroll.scrollTo({ top: 0, behavior: 'auto' });
+                        if (isMobile) {
+                            window.scrollTo({ top: 0, behavior: 'auto' });
+                        } else if (mainScroll) {
+                            mainScroll.scrollTo({ top: 0, behavior: 'auto' });
+                        }
                         scrollPositionRef.current = 0;
                     }
 
                     const handleScroll = () => {
-                        scrollPositionRef.current = mainScroll.scrollTop;
+                        const dynamicIsMobile = window.innerWidth < 768;
+                        scrollPositionRef.current = dynamicIsMobile ? window.scrollY : (mainScroll ? mainScroll.scrollTop : 0);
                     };
-                    mainScroll.addEventListener('scroll', handleScroll, { passive: true });
+
+                    window.addEventListener('scroll', handleScroll, { passive: true });
+                    if (mainScroll) {
+                        mainScroll.addEventListener('scroll', handleScroll, { passive: true });
+                    }
+
                     prevViewModeRef.current = 'reader';
-                    return () => mainScroll.removeEventListener('scroll', handleScroll);
+
+                    return () => {
+                        window.removeEventListener('scroll', handleScroll);
+                        if (mainScroll) {
+                            mainScroll.removeEventListener('scroll', handleScroll);
+                        }
+                    };
                 } else {
                     prevViewModeRef.current = viewMode;
                 }
@@ -2606,26 +2626,27 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             // to bypass the initial smooth auto-scroll and jump instantly.
             const lastScrolledAyah = useRef(scrollPositionRef.current > 0 ? activeAyah?.number : null);
 
+            // Dinamik Header Yüksekliği Ölçümü
+            const [headerHeight, setHeaderHeight] = useState(112); // Fallback to 112px
+
+            useEffect(() => {
+                const headerEl = document.querySelector('header');
+                if (headerEl) {
+                    setHeaderHeight(headerEl.offsetHeight);
+                    const resizeObserver = new ResizeObserver(entries => {
+                        for (let entry of entries) {
+                            setHeaderHeight(entry.target.offsetHeight);
+                        }
+                    });
+                    resizeObserver.observe(headerEl);
+                    return () => resizeObserver.disconnect();
+                }
+            }, []);
+
             // Smart Scroll Detection - Hide/Show Mobile Surah Select on scroll
             const [showMobileSelect, setShowMobileSelect] = useState(true);
-            const [headerHeight, setHeaderHeight] = useState(0);
             const lastScrollY = useRef(0);
             const ticking = useRef(false);
-
-            // Measure header height on mount, resize, and viewMode change
-            useEffect(() => {
-                const measureHeader = () => {
-                    const header = document.querySelector('#quran-root header');
-                    if (header) setHeaderHeight(header.offsetHeight);
-                };
-                measureHeader();
-                window.addEventListener('resize', measureHeader);
-                const timer = setTimeout(measureHeader, 100);
-                return () => {
-                    window.removeEventListener('resize', measureHeader);
-                    clearTimeout(timer);
-                };
-            }, [viewMode]);
 
             useEffect(() => {
                 const mainScroll = document.getElementById('main-scroll');
@@ -2633,8 +2654,8 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 const handleScroll = () => {
                     if (!ticking.current) {
                         requestAnimationFrame(() => {
-                            // On mobile, window.scrollY is the scroll position. On desktop, mainScroll.scrollTop is the scroll position.
-                            const currentScrollY = window.innerWidth < 768 ? window.scrollY : (mainScroll ? mainScroll.scrollTop : 0);
+                            const isMobile = window.innerWidth < 768;
+                            const currentScrollY = isMobile ? window.scrollY : (mainScroll ? mainScroll.scrollTop : 0);
                             const scrollDelta = currentScrollY - lastScrollY.current;
 
                             // Show when scrolling up, hide when scrolling down
@@ -2652,19 +2673,14 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                     }
                 };
 
-                // Listen to window scroll (for mobile)
                 window.addEventListener('scroll', handleScroll, { passive: true });
-                
-                // Listen to mainScroll scroll (for desktop)
                 if (mainScroll) {
                     mainScroll.addEventListener('scroll', handleScroll, { passive: true });
                 }
 
                 return () => {
                     window.removeEventListener('scroll', handleScroll);
-                    if (mainScroll) {
-                        mainScroll.removeEventListener('scroll', handleScroll);
-                    }
+                    if (mainScroll) mainScroll.removeEventListener('scroll', handleScroll);
                 };
             }, []);
 
@@ -2809,7 +2825,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             );
 
             return (
-                <main className="flex-1 overflow-y-auto ios-scroll bg-slate-100 dark:bg-black p-4 md:p-8 pt-4 md:pt-8 scroll-smooth transition-colors duration-300" id="main-scroll">
+                <main className="flex-1 overflow-y-visible md:overflow-y-auto ios-scroll bg-slate-100 dark:bg-black p-4 md:p-8 pt-4 md:pt-8 scroll-smooth transition-colors duration-300" id="main-scroll">
                     <div className="max-w-4xl mx-auto pb-32">
                         {/* Minimal loading indicator - just top spinner, no blocking overlay */}
                         {loading && (
@@ -2836,14 +2852,10 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         {/* Mobile Surah Select - Smart hide/show on scroll */}
                         {!loading && !searching && viewMode === 'reader' && (
                             <div 
-                                className="md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4"
+                                className={`md:hidden sticky left-0 w-full z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800 pt-0 px-2 pb-2 shadow-sm flex gap-2 mb-4 transition-transform duration-300 ease-out`}
                                 style={{
                                     top: `${headerHeight}px`,
-                                    transform: showMobileSelect ? 'translateY(0)' : 'translateY(-100%)',
-                                    opacity: showMobileSelect ? 1 : 0,
-                                    transitionProperty: 'transform, opacity',
-                                    transitionDuration: '300ms',
-                                    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+                                    transform: showMobileSelect ? 'translateY(0)' : `translateY(-${headerHeight + 20}px)`,
                                 }}
                             >
                                 <div className="flex-1 relative">
@@ -3170,7 +3182,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             };
 
             return (
-                <div className="flex flex-col h-full font-sans relative">
+                <div className="flex flex-col min-h-screen md:h-full font-sans relative overflow-visible md:overflow-hidden">
 
                     {/* Help Modal */}
                     {showHelp && (
@@ -3317,9 +3329,9 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         </div>
                     </header>
 
-                    <div className="flex flex-1 overflow-hidden relative">
+                    <div className="flex flex-1 overflow-visible md:overflow-hidden relative">
                         <SurahList />
-                        <div className="flex-1 flex flex-col relative overflow-hidden">
+                        <div className="flex-1 flex flex-col relative overflow-visible md:overflow-hidden">
                             <MainContent />
                             <PlayerBar />
                         </div>
