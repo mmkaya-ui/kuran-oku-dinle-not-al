@@ -15,15 +15,20 @@ html {
     background-color: #047857;
     scroll-behavior: smooth;
     /* Pull-to-refresh enabled by default on both Android and iOS */
+    height: 100%;
+    height: -webkit-fill-available;
+    overflow: hidden;
 }
 
 body {
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    min-height: 100vh;
+    height: 100%;
+    height: -webkit-fill-available;
     background-color: #f3f4f6;
     color: #0f172a;
+    overflow: hidden;
 }
 
 .dark body {
