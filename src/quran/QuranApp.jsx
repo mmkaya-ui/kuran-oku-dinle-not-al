@@ -143,6 +143,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             const jumpTargetRef = useRef(null); // { ayahNumber, shouldPlay }
             const skipDisplayResetRef = useRef(false);
             const [displayLimit, setDisplayLimit] = useState(10);
+            const [playlistLimit, setPlaylistLimit] = useState(10);
             const fullQuranIndex = useRef(null);
 
             // ═══════════════════════════════════════════════════
@@ -1479,7 +1480,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 playlists, setPlaylists, selectedAyahs, setSelectedAyahs, activePlaylist, setActivePlaylist,
                 fontSize, setFontSize, darkMode, setDarkMode, sortType, setSortType,
                 bookmark, setBookmark, fetchDetailsForMatches, loading, loadingText, fetchError, setFetchError, searching,
-                displayLimit, setDisplayLimit, jumpTargetRef, skipDisplayResetRef, navigate,
+                displayLimit, setDisplayLimit, playlistLimit, setPlaylistLimit, jumpTargetRef, skipDisplayResetRef, navigate,
                 playbackRate, setPlaybackRate, repeatMode, setRepeatMode, autoScroll, setAutoScroll,
                 toastMessage, showToast, scrollPositionsRef, playlistPlaybackRef, playbackPlaylistRef
             };
@@ -2605,7 +2606,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 searching, searchQuery, handleSearch, currentSearchTerm, rawMatches, setRawMatches, detailedResults, setDetailedResults, fetchDetailsForMatches,
                 loading, loadingText, fetchError, playlists, activePlaylist, setActivePlaylist, setPlaylists,
                 selectedAyahs, setSelectedAyahs, bookmark, fetchSurah, surahs, sortType, setSortType, sortedSurahs,
-                activeAyah, isPlaying, displayLimit, setDisplayLimit, jumpTargetRef, skipDisplayResetRef, closePlayer, showToast, scrollPositionsRef,
+                activeAyah, isPlaying, displayLimit, setDisplayLimit, playlistLimit, setPlaylistLimit, jumpTargetRef, skipDisplayResetRef, closePlayer, showToast, scrollPositionsRef,
                 playlistPlaybackRef, playbackPlaylistRef, autoScroll
             } = useQuran();
 
@@ -2685,8 +2686,8 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         }
                     } else if (viewMode === 'playlist_view' && activePlaylist) {
                         const idx = activePlaylist.items.findIndex(a => a.number === activeAyah.number);
-                        if (idx !== -1 && idx >= displayLimit) {
-                            setDisplayLimit(idx + 5);
+                        if (idx !== -1 && idx >= playlistLimit) {
+                            setPlaylistLimit(idx + 5);
                             return; // Wait for render to scroll
                         }
                     }
@@ -2711,19 +2712,23 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         return () => clearTimeout(timer);
                     }
                 }
-            }, [activeAyah, displayLimit, ayahs, viewMode, activeSurah, activePlaylist]);
+            }, [activeAyah, displayLimit, playlistLimit, ayahs, viewMode, activeSurah, activePlaylist]);
 
             // Infinite Scroll Logic — skip reset when a jump just set displayLimit
             useEffect(() => {
                 if (skipDisplayResetRef?.current) { skipDisplayResetRef.current = false; return; }
                 setDisplayLimit(10);
-            }, [activeSurah, searchQuery, activePlaylist?.id]);
+            }, [activeSurah, searchQuery]);
+
+            useEffect(() => {
+                setPlaylistLimit(10);
+            }, [activePlaylist?.id]);
 
             const handleLoadMore = useCallback(() => {
                 if (viewMode === 'reader' && displayLimit < ayahs.length) {
                     setDisplayLimit(prev => Math.min(prev + 10, ayahs.length));
-                } else if (viewMode === 'playlist_view' && activePlaylist && displayLimit < activePlaylist.items.length) {
-                    setDisplayLimit(prev => Math.min(prev + 10, activePlaylist.items.length));
+                } else if (viewMode === 'playlist_view' && activePlaylist && playlistLimit < activePlaylist.items.length) {
+                    setPlaylistLimit(prev => Math.min(prev + 10, activePlaylist.items.length));
                 } else if (viewMode === 'search' && detailedResults.length < rawMatches.length) {
                     const startIdx = detailedResults.length;
                     const nextBatch = rawMatches.slice(startIdx, startIdx + 5);
@@ -2735,7 +2740,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         });
                     }
                 }
-            }, [viewMode, displayLimit, ayahs.length, detailedResults.length, rawMatches, fetchDetailsForMatches, activePlaylist]);
+            }, [viewMode, displayLimit, playlistLimit, ayahs.length, detailedResults.length, rawMatches, fetchDetailsForMatches, activePlaylist]);
 
             // Determine all items in current context (for Select All)
             const allItemsInContext = useMemo(() => {
@@ -2788,9 +2793,9 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             const itemsToRender = useMemo(() => {
                 if (viewMode === 'reader') return ayahs.slice(0, displayLimit);
                 if (viewMode === 'search') return detailedResults;
-                if (viewMode === 'playlist_view' && activePlaylist) return activePlaylist.items.slice(0, displayLimit);
+                if (viewMode === 'playlist_view' && activePlaylist) return activePlaylist.items.slice(0, playlistLimit);
                 return [];
-            }, [viewMode, ayahs, displayLimit, detailedResults, activePlaylist]);
+            }, [viewMode, ayahs, displayLimit, playlistLimit, detailedResults, activePlaylist]);
 
             // Farklı suredeyken VEYA aynı suredeyken PlayerBar kapalıysa (aktif ayet yok/oynamıyor) göster
             const bookmarkInCurrentSurah = bookmark && bookmark.surahNumber === activeSurah?.number;
@@ -2944,7 +2949,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                     <AyahCard key={ayah.number} ayahData={ayah} />
                                 ))}
 
-                                {(viewMode === 'reader' && displayLimit < ayahs.length) || (viewMode === 'search' && detailedResults.length < rawMatches.length) || (viewMode === 'playlist_view' && activePlaylist && displayLimit < activePlaylist.items.length) ? (
+                                {(viewMode === 'reader' && displayLimit < ayahs.length) || (viewMode === 'search' && detailedResults.length < rawMatches.length) || (viewMode === 'playlist_view' && activePlaylist && playlistLimit < activePlaylist.items.length) ? (
                                     <InfiniteScrollTrigger onIntersect={handleLoadMore} />
                                 ) : null}
                             </>
