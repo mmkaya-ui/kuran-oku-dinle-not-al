@@ -1311,6 +1311,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                             if (targetVerseNum && targetVerseNum > 1) {
                                 jumpTargetRef.current = { ayahNumber: targetVerseNum, shouldPlay: false };
                             }
+                            closePlayer(); // Oynatıcıyı kapat, eski sesi durdur (atlama yaparken ses karmaşasını önler)
                             fetchSurah(s);
                             setViewMode('reader');
                             setSearchQuery('');

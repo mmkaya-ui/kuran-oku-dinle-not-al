@@ -19,13 +19,48 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="apple-mobile-web-app-title" content="Kuran Talebesi">
-    <!-- Fonts & Icons -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
+    <!-- Preload Critical Fonts for CLS / FCP Optimization -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf" as="font" type="font/ttf" crossorigin>
+    
+    <!-- Synchronous Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Inline Google Fonts (font-display: optional) for Zero-FCP Delay -->
+    <style>
+        @font-face {
+            font-family: 'Amiri'; font-style: italic; font-weight: 400; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/amiri/v30/J7afnpd8CGxBHpUrtLY.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'Amiri'; font-style: normal; font-weight: 400; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/amiri/v30/J7aRnpd8CGxBHqUp.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'Amiri'; font-style: normal; font-weight: 700; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/amiri/v30/J7acnpd8CGxBHp2VkZY4.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'Inter'; font-style: normal; font-weight: 300; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuOKfMZg.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZg.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: optional;
+            src: url(https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf) format('truetype');
+        }
+    </style>
 
     <!-- Apply theme before first paint to prevent FOUC -->
     <script>
