@@ -853,6 +853,13 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                    (activeAyah && Number(activeAyah.number) === Number(ayah.number));
 
                 if (isSameAyah && !options.forcePlay) {
+                    const targetSrc = ayah.audio || "";
+                    const currentSrc = audio.getAttribute('src');
+                    if (currentSrc !== targetSrc) {
+                        audio.src = targetSrc;
+                        audio.__activeAyah = ayah;
+                        // Resetting src implicitly pauses and rewinds
+                    }
                     if (audio.paused) {
                         isPlayingRef.current = true;
                         audio.play().catch(e => {
