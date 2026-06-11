@@ -78,16 +78,13 @@
                 var sys = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 if (t === 'dark' || (!t && sys)) document.documentElement.classList.add('dark');
             } catch (e) { /* ignore */ }
-            
-            // Early API Preload
-            try {
-                var pre = document.createElement('link');
-                pre.rel = 'preload'; pre.as = 'fetch'; pre.crossOrigin = 'anonymous';
-                pre.href = 'https://api.alquran.cloud/v1/surah';
-                document.head.appendChild(pre);
-            } catch(e) {}
         })();
     </script>
+    
+    <!-- Critical API Preloads for 11s LCP Fix -->
+    <link rel="preload" href="https://api.alquran.cloud/v1/surah" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="https://api.alquran.cloud/v1/surah/1/editions/quran-simple,tr.transliteration,tr.vakfi,tr.yazir,tr.ates,tr.ozturk,tr.yildirim,tr.yuksel,ar.alafasy" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="https://api.alquran.cloud/v1/surah/1" as="fetch" crossorigin="anonymous">
 
 </head>
 
