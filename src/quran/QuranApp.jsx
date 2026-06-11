@@ -732,40 +732,42 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         setLoadingText("Liste detayları güncelleniyor...");
 
                         const chunkSizes = 5;
-                        const newItemsMap = {};
-
-                        for (let i = 0; i < uniquePartials.length; i += chunkSizes) {
-                            const chunk = uniquePartials.slice(i, i + chunkSizes);
-                            const matches = chunk.map(p => ({ surah: { number: p.surahNumber }, numberInSurah: p.numberInSurah }));
-                            try {
-                                const details = await fetchDetailsForMatches(matches);
-                                details.forEach(d => { newItemsMap[d.number] = d; });
-                            } catch (chunkErr) {
-                                console.warn("[Hydration] Failed to fetch chunk", chunkErr);
-                            }
-                        }
 
                         try {
-                            const updater = (list) => list.map(item => {
-                                if (newItemsMap[item.number]) {
-                                    return newItemsMap[item.number];
+                            for (let i = 0; i < uniquePartials.length; i += chunkSizes) {
+                                const chunk = uniquePartials.slice(i, i + chunkSizes);
+                                const matches = chunk.map(p => ({ surah: { number: p.surahNumber }, numberInSurah: p.numberInSurah }));
+                                
+                                let details = [];
+                                try {
+                                    details = await fetchDetailsForMatches(matches);
+                                } catch (chunkErr) {
+                                    console.warn("[Hydration] Failed to fetch chunk", chunkErr);
                                 }
-                                // If this item was in the uniquePartials chunk we tried to fetch but it failed,
-                                // strip the isPartial flag to prevent an infinite hydration fetch loop.
-                                if (uniquePartials.some(up => up.number === item.number)) {
-                                    const { isPartial, ...rest } = item;
-                                    return rest;
-                                }
-                                return item;
-                            });
 
-                            setPlaylists(prev => prev.map(p => {
-                                if (p.id === activePlaylist.id) {
-                                    return { ...p, items: updater(p.items) };
-                                }
-                                return p;
-                            }));
-                            // activePlaylist is derived from playlists via useMemo — no separate sync needed
+                                const newItemsMap = {};
+                                details.forEach(d => { newItemsMap[d.number] = d; });
+
+                                setPlaylists(prev => prev.map(p => {
+                                    if (p.id === activePlaylist.id) {
+                                        const updatedItems = p.items.map(item => {
+                                            if (newItemsMap[item.number]) {
+                                                return newItemsMap[item.number];
+                                            }
+                                            if (chunk.some(up => up.number === item.number)) {
+                                                const { isPartial, ...rest } = item;
+                                                return rest;
+                                            }
+                                            return item;
+                                        });
+                                        return { ...p, items: updatedItems };
+                                    }
+                                    return p;
+                                }));
+                                
+                                // Small delay to allow React to render the newly hydrated chunk
+                                await new Promise(r => setTimeout(r, 50));
+                            }
                         } catch (e) {
                             console.error("Hydration failed", e);
                         } finally {
@@ -2715,7 +2717,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             useEffect(() => {
                 if (skipDisplayResetRef?.current) { skipDisplayResetRef.current = false; return; }
                 setDisplayLimit(10);
-            }, [activeSurah, searchQuery, activePlaylist]);
+            }, [activeSurah, searchQuery, activePlaylist?.id]);
 
             const handleLoadMore = useCallback(() => {
                 if (viewMode === 'reader' && displayLimit < ayahs.length) {
