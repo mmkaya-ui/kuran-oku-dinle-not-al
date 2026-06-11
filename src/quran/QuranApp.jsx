@@ -2674,9 +2674,15 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         return;
                     }
 
-                    // Handle lazy loading for reader mode
+                    // Handle lazy loading for reader and playlist modes
                     if (viewMode === 'reader') {
                         const idx = ayahs.findIndex(a => a.number === activeAyah.number);
+                        if (idx !== -1 && idx >= displayLimit) {
+                            setDisplayLimit(idx + 5);
+                            return; // Wait for render to scroll
+                        }
+                    } else if (viewMode === 'playlist_view' && activePlaylist) {
+                        const idx = activePlaylist.items.findIndex(a => a.number === activeAyah.number);
                         if (idx !== -1 && idx >= displayLimit) {
                             setDisplayLimit(idx + 5);
                             return; // Wait for render to scroll
@@ -2709,11 +2715,13 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             useEffect(() => {
                 if (skipDisplayResetRef?.current) { skipDisplayResetRef.current = false; return; }
                 setDisplayLimit(10);
-            }, [activeSurah, searchQuery]);
+            }, [activeSurah, searchQuery, activePlaylist]);
 
             const handleLoadMore = useCallback(() => {
                 if (viewMode === 'reader' && displayLimit < ayahs.length) {
                     setDisplayLimit(prev => Math.min(prev + 10, ayahs.length));
+                } else if (viewMode === 'playlist_view' && activePlaylist && displayLimit < activePlaylist.items.length) {
+                    setDisplayLimit(prev => Math.min(prev + 10, activePlaylist.items.length));
                 } else if (viewMode === 'search' && detailedResults.length < rawMatches.length) {
                     const startIdx = detailedResults.length;
                     const nextBatch = rawMatches.slice(startIdx, startIdx + 5);
@@ -2725,7 +2733,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         });
                     }
                 }
-            }, [viewMode, displayLimit, ayahs.length, detailedResults.length, rawMatches, fetchDetailsForMatches]);
+            }, [viewMode, displayLimit, ayahs.length, detailedResults.length, rawMatches, fetchDetailsForMatches, activePlaylist]);
 
             // Determine all items in current context (for Select All)
             const allItemsInContext = useMemo(() => {
@@ -2778,7 +2786,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             const itemsToRender = useMemo(() => {
                 if (viewMode === 'reader') return ayahs.slice(0, displayLimit);
                 if (viewMode === 'search') return detailedResults;
-                if (viewMode === 'playlist_view' && activePlaylist) return activePlaylist.items;
+                if (viewMode === 'playlist_view' && activePlaylist) return activePlaylist.items.slice(0, displayLimit);
                 return [];
             }, [viewMode, ayahs, displayLimit, detailedResults, activePlaylist]);
 
@@ -2934,7 +2942,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                     <AyahCard key={ayah.number} ayahData={ayah} />
                                 ))}
 
-                                {(viewMode === 'reader' && displayLimit < ayahs.length) || (viewMode === 'search' && detailedResults.length < rawMatches.length) ? (
+                                {(viewMode === 'reader' && displayLimit < ayahs.length) || (viewMode === 'search' && detailedResults.length < rawMatches.length) || (viewMode === 'playlist_view' && activePlaylist && displayLimit < activePlaylist.items.length) ? (
                                     <InfiniteScrollTrigger onIntersect={handleLoadMore} />
                                 ) : null}
                             </>
