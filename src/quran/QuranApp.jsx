@@ -1642,18 +1642,26 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 if (diyanetTafsir || loadingDiyanet) return;
                 setLoadingDiyanet(true);
                 try {
-                    const apiUrl = `/api/tafsir?surahName=${normalizedSurahName}&globalId=${globalID}&ayahNum=${ayahData.numberInSurah}`;
+                    const apiUrl = `/data/tafsir/diyanet/${ayahData.surahNumber}.json`;
                     const response = await fetch(apiUrl);
-                    const data = await response.json();
                     
-                    if (response.ok && data.html) {
-                        const cleanText = DOMPurify.sanitize(data.html, {
-                            ALLOWED_TAGS: ['p', 'b', 'i', 'em', 'strong', 'a', 'br', 'ul', 'ol', 'li', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote'],
-                            ALLOWED_ATTR: ['href', 'target', 'rel']
-                        });
-                        setDiyanetTafsir(cleanText);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const htmlContent = data[ayahData.numberInSurah.toString()];
+                        
+                        if (htmlContent) {
+                            const cleanText = DOMPurify.sanitize(htmlContent, {
+                                ALLOWED_TAGS: ['p', 'b', 'i', 'em', 'strong', 'a', 'br', 'ul', 'ol', 'li', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote'],
+                                ALLOWED_ATTR: ['href', 'target', 'rel', 'style']
+                            });
+                            // Diyanet kaynak linki
+                            const sourceLink = `<div class="mt-4 pt-3 border-t border-gray-200 dark:border-neutral-700 text-xs text-gray-500 dark:text-gray-400 text-right"><a href="${diyanetUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Kaynak: Diyanet Kur'an Yolu Tefsiri</a></div>`;
+                            setDiyanetTafsir(cleanText + sourceLink);
+                        } else {
+                            setDiyanetTafsir("<p class='text-sm text-gray-500 dark:text-gray-400 italic'>Bu ayet için tefsir metni bulunamadı.</p>");
+                        }
                     } else {
-                        setDiyanetTafsir("<p class='text-sm text-red-500'>Tefsir metni bu sayfadan çekilemedi. " + (data.error || "") + "</p>");
+                        setDiyanetTafsir(`<p class='text-sm text-red-500'>Tefsir veritabanına ulaşılamadı (Hata: ${response.status}).</p>`);
                     }
                 } catch (err) {
                     console.error("Diyanet fetch error:", err);
