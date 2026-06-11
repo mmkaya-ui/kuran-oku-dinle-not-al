@@ -156,6 +156,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             const audioRef = useRef(new Audio());
             const [playbackRate, setPlaybackRate] = useState(() => { const s = parseFloat(safeStorage.getItem('quran_playbackRate')); return (s >= 0.5 && s <= 2) ? s : 1; });
             const [repeatMode, setRepeatMode] = useState(() => { const s = safeStorage.getItem('quran_repeatMode'); return ['none','one','all'].includes(s) ? s : 'none'; });
+            const [autoScroll, setAutoScroll] = useState(() => { const s = safeStorage.getItem('quran_autoScroll'); return s === 'false' ? false : true; });
             const autoPlayAfterLoad = useRef(false);
             // Note: Cross-surah auto-scroll prevention is now handled directly in MainContent
             // by checking if activeAyah.surahNumber === activeSurah.number
@@ -1477,7 +1478,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 fontSize, setFontSize, darkMode, setDarkMode, sortType, setSortType,
                 bookmark, setBookmark, fetchDetailsForMatches, loading, loadingText, fetchError, setFetchError, searching,
                 displayLimit, setDisplayLimit, jumpTargetRef, skipDisplayResetRef, navigate,
-                playbackRate, setPlaybackRate, repeatMode, setRepeatMode,
+                playbackRate, setPlaybackRate, repeatMode, setRepeatMode, autoScroll, setAutoScroll,
                 toastMessage, showToast, scrollPositionsRef, playlistPlaybackRef, playbackPlaylistRef
             };
 
@@ -1929,7 +1930,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
         });
 
         const PlayerBar = () => {
-            const { activeAyah, isPlaying, playAyah, closePlayer, playNext, playPrev, audioRef, playbackRate, setPlaybackRate, repeatMode, setRepeatMode, fetchSurah, surahs, activeSurah, jumpTargetRef, setViewMode, activePlaylist, setActivePlaylist, viewMode, playlistPlaybackRef, playbackPlaylistRef, ayahs, setDisplayLimit, skipDisplayResetRef } = useQuran();
+            const { activeAyah, isPlaying, playAyah, closePlayer, playNext, playPrev, audioRef, playbackRate, setPlaybackRate, repeatMode, setRepeatMode, autoScroll, setAutoScroll, fetchSurah, surahs, activeSurah, jumpTargetRef, setViewMode, activePlaylist, setActivePlaylist, viewMode, playlistPlaybackRef, playbackPlaylistRef, ayahs, setDisplayLimit, skipDisplayResetRef } = useQuran();
 
             // Local state for high-frequency updates
             const [currentTime, setCurrentTime] = useState(0);
@@ -2049,7 +2050,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                 {activeAyah.surahName} {activeAyah.numberInSurah}. Ayet 
                             </h3>
                             <span className="text-[10px] font-medium bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1 border border-emerald-100 dark:border-emerald-800/50">
-                                <span className="hidden sm:block">Takip</span> <i className="fa-solid fa-location-arrow text-[10px]"></i>
+                                Git <i className="fa-solid fa-location-crosshairs text-[10px]"></i>
                             </span>
                         </button>
                         <button onClick={closePlayer} aria-label="Çaları kapat" className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center shrink-0 ml-1 transition-colors">
@@ -2094,6 +2095,20 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
                             {/* Right: Repeat Mode */}
                             <div className="flex-1 flex justify-end items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setAutoScroll(prev => {
+                                            const newVal = !prev;
+                                            safeStorage.setItem('quran_autoScroll', newVal ? 'true' : 'false');
+                                            return newVal;
+                                        });
+                                    }}
+                                    className={`px-3 h-8 rounded-full flex items-center justify-center transition-colors text-xs font-medium gap-1.5 shadow-sm ${autoScroll ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-slate-400'}`}
+                                    title={autoScroll ? "Otomatik takip açık" : "Otomatik takip kapalı"}
+                                >
+                                    <i className="fa-solid fa-location-arrow"></i>
+                                    <span className="hidden sm:block">Takip</span>
+                                </button>
                                 <button onClick={() => setRepeatMode(prev => prev === 'none' ? 'one' : prev === 'one' ? 'all' : 'none')} className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors relative ${repeatMode !== 'none' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-emerald-600 hover:bg-gray-200 dark:hover:bg-gray-700'}`} title={repeatMode === 'none' ? "Tekrar Kapalı" : repeatMode === 'one' ? "Tek Ayeti Tekrarla" : "Tüm Listeyi Tekrarla"} aria-label={repeatMode === 'none' ? 'Tekrar kapalı, tekrar modunu değiştir' : repeatMode === 'one' ? 'Tek ayet tekrar modu, değiştir' : 'Tüm liste tekrar modu, değiştir'} aria-pressed={repeatMode !== 'none'}>
                                     <i className="fa-solid fa-repeat text-xs"></i>
                                     {repeatMode === 'one' && <span className="absolute text-[8px] font-bold bottom-1 right-1.5 bg-white dark:bg-black rounded-full w-3 h-3 flex items-center justify-center leading-none border border-emerald-100 dark:border-neutral-800">1</span>}
@@ -2589,7 +2604,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 loading, loadingText, fetchError, playlists, activePlaylist, setActivePlaylist, setPlaylists,
                 selectedAyahs, setSelectedAyahs, bookmark, fetchSurah, surahs, sortType, setSortType, sortedSurahs,
                 activeAyah, isPlaying, displayLimit, setDisplayLimit, jumpTargetRef, skipDisplayResetRef, closePlayer, showToast, scrollPositionsRef,
-                playlistPlaybackRef, playbackPlaylistRef
+                playlistPlaybackRef, playbackPlaylistRef, autoScroll
             } = useQuran();
 
             // Initialize lastScrolledAyah to activeAyah.number if returning to a saved scroll position,
@@ -2636,6 +2651,11 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             // Auto-scroll to active ayah
             useEffect(() => {
                 if (activeAyah) {
+                    if (!autoScroll) {
+                        lastScrolledAyah.current = activeAyah.number;
+                        return;
+                    }
+                    
                     // Cross-surah protection IN READER MODE: 
                     // If user navigated to a different surah while playback continues,
                     // don't force scroll - let them stay where they are reading.
