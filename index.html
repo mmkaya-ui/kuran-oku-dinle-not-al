@@ -95,12 +95,14 @@
     <!-- ========================================== -->
     <div id="quran-root"
         class="fixed inset-0 z-[200] bg-gray-50 dark:bg-black w-full h-full overflow-hidden flex flex-col transition-colors duration-300">
-        <!-- Initial FCP Loader -->
-        <div style="display:flex; height:100%; width:100%; align-items:center; justify-content:center; color:#10b981;">
+        <!-- Initial FCP Loader with Text for Lighthouse -->
+        <div style="display:flex; flex-direction:column; height:100%; width:100%; align-items:center; justify-content:center; color:#10b981; font-family:sans-serif;">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
                 <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
             </svg>
+            <div style="margin-top:16px; font-weight:600; font-size:16px;">Kuran Talebesi</div>
+            <div style="font-size:12px; color:#6b7280; margin-top:4px;">Yükleniyor...</div>
         </div>
     </div>
 
