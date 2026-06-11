@@ -1308,6 +1308,8 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                 jumpTargetRef.current = { ayahNumber: targetVerseNum, shouldPlay: false };
                             }
                             fetchSurah(s);
+                            setViewMode('reader');
+                            setSearchQuery('');
                             setSearching(false); return;
                         }
                     }
@@ -1327,7 +1329,12 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                         } else {
                             // Only surah name typed with trailing space — navigate to it
                             const s = surahs.find(x => x.number === foundSurah.id);
-                            if (s) { fetchSurah(s); setSearching(false); return; }
+                            if (s) { 
+                                fetchSurah(s); 
+                                setViewMode('reader');
+                                setSearchQuery('');
+                                setSearching(false); return; 
+                            }
                         }
                     }
 
@@ -1631,27 +1638,22 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 if (diyanetTafsir || loadingDiyanet) return;
                 setLoadingDiyanet(true);
                 try {
-                    // CORS Proxy kullanarak Diyanet sitesinden tefsiri çekiyoruz (allorigins hata verdiği için codetabs kullanıyoruz)
-                    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(diyanetUrl)}`;
-                    const response = await fetch(proxyUrl);
-                    const htmlText = await response.text();
+                    const apiUrl = `/api/tafsir?surahName=${normalizedSurahName}&globalId=${globalID}&ayahNum=${ayahData.numberInSurah}`;
+                    const response = await fetch(apiUrl);
+                    const data = await response.json();
                     
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlText, 'text/html');
-                    const tefsirDiv = doc.querySelector('.tefsir-text');
-                    
-                    if (tefsirDiv) {
-                        const cleanText = DOMPurify.sanitize(tefsirDiv.innerHTML, {
+                    if (response.ok && data.html) {
+                        const cleanText = DOMPurify.sanitize(data.html, {
                             ALLOWED_TAGS: ['p', 'b', 'i', 'em', 'strong', 'a', 'br', 'ul', 'ol', 'li', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote'],
                             ALLOWED_ATTR: ['href', 'target', 'rel']
                         });
                         setDiyanetTafsir(cleanText);
                     } else {
-                        setDiyanetTafsir("<p class='text-sm text-red-500'>Tefsir metni bu sayfadan çekilemedi. Lütfen Diyanet'in sitesinden kontrol edin.</p>");
+                        setDiyanetTafsir("<p class='text-sm text-red-500'>Tefsir metni bu sayfadan çekilemedi. " + (data.error || "") + "</p>");
                     }
                 } catch (err) {
                     console.error("Diyanet fetch error:", err);
-                    setDiyanetTafsir("<p class='text-sm text-red-500'>Tefsir yüklenirken bir hata oluştu (CORS/Proxy).</p>");
+                    setDiyanetTafsir("<p class='text-sm text-red-500'>Tefsir yüklenirken bir hata oluştu.</p>");
                 } finally {
                     setLoadingDiyanet(false);
                 }
@@ -1901,7 +1903,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
 
                                 <div className="mt-4 pt-4 border-t dark:border-neutral-800">
                                     <h4 className="text-xs font-bold text-emerald-600 mb-3 flex items-center justify-between">
-                                        <span>Diyanet İşleri (Kur'an Yolu) Tefsiri</span>
+                                        <span>Diyanet Kur'an Yolu Tefsiri</span>
                                         <a href={diyanetUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-emerald-600/70 hover:text-emerald-600 dark:text-emerald-500/70 dark:hover:text-emerald-400 transition-colors flex items-center gap-1" title="Diyanet sitesinde aç">
                                             Orijinal Kaynak <i className="fa-solid fa-arrow-up-right-from-square"></i>
                                         </a>
@@ -2047,7 +2049,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                 {activeAyah.surahName} {activeAyah.numberInSurah}. Ayet 
                             </h3>
                             <span className="text-[10px] font-medium bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1 border border-emerald-100 dark:border-emerald-800/50">
-                                Git <i className="fa-solid fa-location-crosshairs text-[10px]"></i>
+                                <span className="hidden sm:block">Takip</span> <i className="fa-solid fa-location-arrow text-[10px]"></i>
                             </span>
                         </button>
                         <button onClick={closePlayer} aria-label="Çaları kapat" className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center shrink-0 ml-1 transition-colors">
@@ -2075,9 +2077,9 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                             {/* Left: Playback speed */}
                             <div className="flex-1 flex justify-start">
                                 <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shrink-0 h-8 border border-gray-200 dark:border-neutral-800 shadow-inner">
-                                    <button onClick={() => setPlaybackRate(prev => Math.round(Math.max(0.5, prev - 0.25) * 100) / 100)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Yavaşlat" aria-label="Oynatma hızını azalt">-</button>
+                                    <button onClick={() => setPlaybackRate(prev => Math.round(Math.max(0.5, prev - 0.1) * 10) / 10)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Yavaşlat" aria-label="Oynatma hızını azalt">-</button>
                                     <span className="w-7 md:w-8 text-center text-[10px] font-bold text-emerald-600 select-none" aria-label={`Oynatma hızı: ${playbackRate}x`}>{playbackRate}x</span>
-                                    <button onClick={() => setPlaybackRate(prev => Math.round(Math.min(2.0, prev + 0.25) * 100) / 100)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Hızlandır" aria-label="Oynatma hızını artır">+</button>
+                                    <button onClick={() => setPlaybackRate(prev => Math.round(Math.min(2.0, prev + 0.1) * 10) / 10)} className="w-6 h-full flex items-center justify-center text-[14px] font-bold text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-emerald-600 transition-colors" title="Hızlandır" aria-label="Oynatma hızını artır">+</button>
                                 </div>
                             </div>
 
@@ -3261,7 +3263,15 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                                     <i className="fa-solid fa-comment text-[10px]"></i> Notlarım
                                 </button>
                                 <button
-                                    onClick={() => navigate('playlists_list')}
+                                    onClick={() => {
+                                        if (viewMode === 'playlist_view') {
+                                            navigate('playlists_list');
+                                        } else if (activePlaylist) {
+                                            navigate('playlist_view');
+                                        } else {
+                                            navigate('playlists_list');
+                                        }
+                                    }}
                                     className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${viewMode === 'playlists_list' || viewMode === 'playlist_view' ? 'bg-white text-emerald-800 shadow-sm' : 'text-emerald-100 hover:bg-emerald-600'}`}
                                 >
                                     <i className="fa-solid fa-layer-group text-[10px]"></i> Listelerim
