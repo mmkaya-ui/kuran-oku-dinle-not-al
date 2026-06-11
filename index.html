@@ -23,8 +23,13 @@
     <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf" as="font" type="font/ttf" crossorigin>
     
-    <!-- Synchronous Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- API Preconnects -->
+    <link rel="preconnect" href="https://api.alquran.cloud" crossorigin>
+    <link rel="dns-prefetch" href="https://api.alquran.cloud">
+
+    <!-- Asynchronous Icons to prevent Render-Blocking -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 
     <!-- Inline Google Fonts (font-display: optional) for Zero-FCP Delay -->
     <style>
@@ -60,6 +65,9 @@
             font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: optional;
             src: url(https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf) format('truetype');
         }
+        
+        /* Loading Animation */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 
     <!-- Apply theme before first paint to prevent FOUC -->
@@ -70,6 +78,14 @@
                 var sys = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 if (t === 'dark' || (!t && sys)) document.documentElement.classList.add('dark');
             } catch (e) { /* ignore */ }
+            
+            // Early API Preload
+            try {
+                var pre = document.createElement('link');
+                pre.rel = 'preload'; pre.as = 'fetch'; pre.crossOrigin = 'anonymous';
+                pre.href = 'https://api.alquran.cloud/v1/surah';
+                document.head.appendChild(pre);
+            } catch(e) {}
         })();
     </script>
 
@@ -82,6 +98,13 @@
     <!-- ========================================== -->
     <div id="quran-root"
         class="fixed inset-0 z-[200] bg-gray-50 dark:bg-black w-full h-full overflow-hidden flex flex-col transition-colors duration-300">
+        <!-- Initial FCP Loader -->
+        <div style="display:flex; height:100%; width:100%; align-items:center; justify-content:center; color:#10b981;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+            </svg>
+        </div>
     </div>
 
     <!-- Vite-bundled entry: schedule + quran + service worker -->
