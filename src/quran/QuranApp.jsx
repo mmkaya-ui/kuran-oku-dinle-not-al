@@ -830,6 +830,17 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
             }, [activeAyah, ayahs]);
 
             // Audio Controls
+            const closePlayer = () => {
+                if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current.__activeAyah = null;
+                }
+                setIsPlaying(false);
+                isPlayingRef.current = false;
+                setActiveAyah(null);
+            };
+
+
             const playAyah = (ayah, options = {}) => {
                 const now = Date.now();
                 if (!options.automatic && now - lastClickTimeRef.current < 200) return; // Debounce rapid clicks only
@@ -1477,7 +1488,7 @@ import { bigCache, playlists as dbPlaylists, notes as dbNotes, migrateFromLocalS
                 surahs, sortedSurahs, ayahs, viewMode, setViewMode, activeSurah, setActiveSurah, fetchSurah,
                 searchQuery, setSearchQuery, handleSearch, currentSearchTerm, rawMatches, setRawMatches, detailedResults, setDetailedResults,
                 activeAyah, setActiveAyah, isPlaying, setIsPlaying, audioRef, playAyah, playNext, playPrev,
-                closePlayer: () => { audioRef.current.pause(); audioRef.current.__activeAyah = null; setIsPlaying(false); isPlayingRef.current = false; setActiveAyah(null); },
+                closePlayer,
                 playlists, setPlaylists, selectedAyahs, setSelectedAyahs, activePlaylist, setActivePlaylist,
                 fontSize, setFontSize, darkMode, setDarkMode, sortType, setSortType,
                 bookmark, setBookmark, fetchDetailsForMatches, loading, loadingText, fetchError, setFetchError, searching,
